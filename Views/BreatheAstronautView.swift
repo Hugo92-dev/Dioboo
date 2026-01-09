@@ -290,15 +290,16 @@ struct AstronautFloatingView: View {
         return -(cos(.pi * t) - 1) / 2
     }
 
-    var body: some View {
+    private var floatOffset: CGFloat {
         let isInhale = cycleProgress < 0.5
-        let floatOffset: CGFloat
         if isInhale {
-            floatOffset = -easeInOutSine(cycleProgress * 2) * floatDistance
+            return -easeInOutSine(cycleProgress * 2) * floatDistance
         } else {
-            floatOffset = -floatDistance + easeInOutSine((cycleProgress - 0.5) * 2) * floatDistance
+            return -floatDistance + easeInOutSine((cycleProgress - 0.5) * 2) * floatDistance
         }
+    }
 
+    var body: some View {
         ZStack {
             // Moon
             AstronautMoonView()
