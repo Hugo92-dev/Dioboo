@@ -694,13 +694,13 @@ struct FerrisLamppostsView: View {
 
                 // Light
                 let lightPath = Path(ellipseIn: CGRect(x: (x - 3) * scale, y: 0, width: 6 * scale, height: 6 * scale))
-                context.fill(lightPath, with: .color(
-                    RadialGradient(
-                        colors: [Color(hex: "ffeecc"), Color(hex: "ffdd99"), Color.clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 3 * scale
-                    )
+                let lightCenterX = (x - 3) * scale + 3 * scale
+                let lightCenterY = 3 * scale
+                context.fill(lightPath, with: .radialGradient(
+                    Gradient(colors: [Color(hex: "ffeecc"), Color(hex: "ffdd99"), Color.clear]),
+                    center: CGPoint(x: lightCenterX, y: lightCenterY),
+                    startRadius: 0,
+                    endRadius: 3 * scale
                 ))
 
                 // Pole
