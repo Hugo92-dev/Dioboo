@@ -7,6 +7,7 @@ struct BreatheBranchView: View {
 
     @State private var elapsedTime: Double = 0
     @State private var isAnimating = false
+    @State private var sceneOpacity: Double = 0
 
     private let cycleDuration: Double = 10.0
 
@@ -20,7 +21,7 @@ struct BreatheBranchView: View {
             let height = geometry.size.height
 
             ZStack {
-                // Forest background
+                // Background with gradient (matches HTML exactly)
                 ForestBackground()
 
                 // Bokeh lights
@@ -52,6 +53,7 @@ struct BreatheBranchView: View {
                                         Circle()
                                             .stroke(.white.opacity(0.2), lineWidth: 1)
                                     )
+                                    .blur(radius: 0.5) // backdrop-filter simulation
                                 Image(systemName: "arrow.left")
                                     .font(.system(size: 18, weight: .medium))
                                     .foregroundColor(.white)
@@ -72,8 +74,8 @@ struct BreatheBranchView: View {
                         .font(.custom("Nunito", size: 22).weight(.regular))
                         .tracking(6)
                         .foregroundColor(.white)
-                        .shadow(color: Color(red: 0, green: 0.2, blue: 0.1).opacity(0.5), radius: 15, y: 2)
-                        .padding(.bottom, 8)
+                        .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.5), radius: 15, y: 2)
+                        .padding(.bottom, 32)
 
                     // Timer
                     let remaining = max(0, totalDuration - elapsedTime)
@@ -83,8 +85,8 @@ struct BreatheBranchView: View {
                     Text(String(format: "%d:%02d", minutes, seconds))
                         .font(.custom("Nunito", size: 15).weight(.light))
                         .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: Color(red: 0, green: 0.2, blue: 0.1).opacity(0.3), radius: 5, y: 1)
-                        .padding(.bottom, 20)
+                        .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.3), radius: 5, y: 1)
+                        .padding(.bottom, 38)
 
                     // Progress bar
                     ZStack(alignment: .leading) {
@@ -101,9 +103,19 @@ struct BreatheBranchView: View {
                 }
             }
             .ignoresSafeArea()
+            .opacity(sceneOpacity)
         }
         .onAppear {
-            startAnimation()
+            // Fade in animation matching HTML (1s ease with 0.3s delay)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    sceneOpacity = 1
+                }
+            }
+            // Start breath animation after 1.2s
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                startAnimation()
+            }
         }
         .onDisappear {
             isAnimating = false
@@ -134,16 +146,17 @@ struct BreatheBranchView: View {
 
 struct ForestBackground: View {
     var body: some View {
+        // Exact gradient from HTML: linear-gradient(160deg, #1a3a2a, #2a4a3a, #3a5a4a, #2a4838, #1a3828)
         LinearGradient(
-            colors: [
-                Color(red: 0.10, green: 0.23, blue: 0.16),
-                Color(red: 0.16, green: 0.29, blue: 0.23),
-                Color(red: 0.23, green: 0.35, blue: 0.29),
-                Color(red: 0.16, green: 0.28, blue: 0.22),
-                Color(red: 0.10, green: 0.22, blue: 0.16)
+            stops: [
+                .init(color: Color(red: 0x1a/255.0, green: 0x3a/255.0, blue: 0x2a/255.0), location: 0.0),
+                .init(color: Color(red: 0x2a/255.0, green: 0x4a/255.0, blue: 0x3a/255.0), location: 0.25),
+                .init(color: Color(red: 0x3a/255.0, green: 0x5a/255.0, blue: 0x4a/255.0), location: 0.50),
+                .init(color: Color(red: 0x2a/255.0, green: 0x48/255.0, blue: 0x38/255.0), location: 0.75),
+                .init(color: Color(red: 0x1a/255.0, green: 0x38/255.0, blue: 0x28/255.0), location: 1.0)
             ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            startPoint: UnitPoint(x: 0.2, y: 0.0),  // 160deg approximation
+            endPoint: UnitPoint(x: 0.8, y: 1.0)
         )
         .ignoresSafeArea()
     }
@@ -157,13 +170,33 @@ struct BokehLayer: View {
     let width: CGFloat
     let height: CGFloat
 
-    private let bokehData: [(x: CGFloat, y: CGFloat, size: CGFloat, color: Color, period: Double)] = [
-        (0.15, 0.10, 80, Color(red: 0.70, green: 0.86, blue: 0.63), 8),
-        (0.90, 0.25, 120, Color(red: 0.78, green: 0.94, blue: 0.70), 10),
-        (0.08, 0.60, 60, Color(red: 0.63, green: 0.78, blue: 0.55), 7),
-        (0.85, 0.75, 100, Color(red: 0.74, green: 0.90, blue: 0.67), 9),
-        (0.25, 0.45, 50, Color(red: 0.86, green: 1.0, blue: 0.78), 6),
-        (0.75, 0.15, 70, Color(red: 0.67, green: 0.82, blue: 0.59), 11)
+    // Exact bokeh data from HTML
+    private struct BokehData {
+        let x: CGFloat
+        let y: CGFloat
+        let size: CGFloat
+        let color: Color
+        let period: Double
+        let offsetX: CGFloat
+        let offsetY: CGFloat
+        let scaleMax: CGFloat
+        let opacityBase: CGFloat
+        let opacityPeak: CGFloat
+    }
+
+    private let bokehItems: [BokehData] = [
+        // bokeh-1: 80px, top: 10%, left: 15%, rgba(180,220,160,0.6), 8s
+        BokehData(x: 0.15, y: 0.10, size: 80, color: Color(red: 180/255.0, green: 220/255.0, blue: 160/255.0), period: 8, offsetX: 10, offsetY: -15, scaleMax: 1.1, opacityBase: 0.4, opacityPeak: 0.5),
+        // bokeh-2: 120px, top: 25%, right: 10% (so left: 90%), rgba(200,240,180,0.5), 10s
+        BokehData(x: 0.90, y: 0.25, size: 120, color: Color(red: 200/255.0, green: 240/255.0, blue: 180/255.0), period: 10, offsetX: -15, offsetY: 10, scaleMax: 1.15, opacityBase: 0.35, opacityPeak: 0.45),
+        // bokeh-3: 60px, top: 60%, left: 8%, rgba(160,200,140,0.5), 7s
+        BokehData(x: 0.08, y: 0.60, size: 60, color: Color(red: 160/255.0, green: 200/255.0, blue: 140/255.0), period: 7, offsetX: 8, offsetY: 12, scaleMax: 0.95, opacityBase: 0.4, opacityPeak: 0.5),
+        // bokeh-4: 100px, bottom: 25% (top: 75%), right: 15% (left: 85%), rgba(190,230,170,0.4), 9s
+        BokehData(x: 0.85, y: 0.75, size: 100, color: Color(red: 190/255.0, green: 230/255.0, blue: 170/255.0), period: 9, offsetX: -10, offsetY: -8, scaleMax: 1.08, opacityBase: 0.35, opacityPeak: 0.45),
+        // bokeh-5: 50px, top: 45%, left: 25%, rgba(220,255,200,0.5), 6s
+        BokehData(x: 0.25, y: 0.45, size: 50, color: Color(red: 220/255.0, green: 255/255.0, blue: 200/255.0), period: 6, offsetX: 5, offsetY: -10, scaleMax: 1.12, opacityBase: 0.45, opacityPeak: 0.55),
+        // bokeh-6: 70px, top: 15%, right: 25% (left: 75%), rgba(170,210,150,0.45), 11s
+        BokehData(x: 0.75, y: 0.15, size: 70, color: Color(red: 170/255.0, green: 210/255.0, blue: 150/255.0), period: 11, offsetX: -8, offsetY: 5, scaleMax: 1.05, opacityBase: 0.4, opacityPeak: 0.5)
     ]
 
     var body: some View {
@@ -173,15 +206,21 @@ struct BokehLayer: View {
         let bokehIntensity = 0.3 + breathPhase * 0.25
 
         Canvas { context, size in
-            for bokeh in bokehData {
+            for bokeh in bokehItems {
                 let phase = elapsedTime / bokeh.period
-                let offsetX = sin(phase) * 10 + cos(phase * 0.7) * 5
-                let offsetY = cos(phase) * 15 - sin(phase * 0.5) * 8
-                let scaleVariation = 1 + sin(phase) * 0.1
+                let t = (1 - cos(phase * .pi * 2)) / 2 // easeInOutSine equivalent
+
+                let offsetX = bokeh.offsetX * t
+                let offsetY = bokeh.offsetY * t
+                let scaleVariation = 1 + (bokeh.scaleMax - 1) * t
+                let opacity = bokeh.opacityBase + (bokeh.opacityPeak - bokeh.opacityBase) * t
 
                 let centerX = size.width * bokeh.x + offsetX
                 let centerY = size.height * bokeh.y + offsetY
                 let radius = bokeh.size * scaleVariation / 2
+
+                // Base opacity 0.4 from CSS, plus breath variation
+                let finalOpacity = opacity * (bokehIntensity + 0.4)
 
                 context.fill(
                     Path(ellipseIn: CGRect(
@@ -191,7 +230,7 @@ struct BokehLayer: View {
                         height: radius * 2
                     )),
                     with: .radialGradient(
-                        Gradient(colors: [bokeh.color.opacity(0.5 * (bokehIntensity + 0.4)), .clear]),
+                        Gradient(colors: [bokeh.color.opacity(0.6 * finalOpacity), .clear]),
                         center: CGPoint(x: centerX, y: centerY),
                         startRadius: 0,
                         endRadius: radius
@@ -199,7 +238,7 @@ struct BokehLayer: View {
                 )
             }
         }
-        .blur(radius: 8)
+        .blur(radius: 8) // filter: blur(8px) from CSS
     }
 }
 
@@ -211,74 +250,97 @@ struct BirdsLayer: View {
     let height: CGFloat
 
     var body: some View {
-        // Bird 1 - flying left to right
-        let bird1Cycle = elapsedTime.truncatingRemainder(dividingBy: 18)
-        let bird1X = -0.1 + (bird1Cycle / 18) * 1.2
-        let bird1Y = 0.18 - (bird1Cycle / 18) * 0.06
+        ZStack {
+            // Bird 1 - flying left to right, 18s animation
+            let bird1Cycle = elapsedTime.truncatingRemainder(dividingBy: 18)
+            let bird1Progress = bird1Cycle / 18
+            // translateX: 0 -> 200px -> 400px, translateY: 0 -> -30px -> -50px
+            let bird1X = -0.1 + bird1Progress * 1.2
+            let bird1Y = 0.18 - bird1Progress * 0.06
+            // Opacity: 0 -> 0.6 (5%) -> 0.6 (95%) -> 0 (100%)
+            let bird1Opacity: Double = {
+                if bird1Progress < 0.05 { return bird1Progress / 0.05 * 0.6 }
+                else if bird1Progress > 0.95 { return (1 - bird1Progress) / 0.05 * 0.6 }
+                else { return 0.6 }
+            }()
 
-        SmallBirdView(elapsedTime: elapsedTime)
-            .frame(width: 32, height: 20)
-            .position(x: width * bird1X, y: height * bird1Y)
-            .opacity(bird1X > 0 && bird1X < 1 ? 0.6 : 0)
+            BlueBirdView(elapsedTime: elapsedTime)
+                .frame(width: 32, height: 20)
+                .position(x: width * bird1X, y: height * bird1Y)
+                .opacity(bird1Opacity)
 
-        // Bird 2 - flying right to left
-        let bird2Cycle = (elapsedTime + 6).truncatingRemainder(dividingBy: 20)
-        let bird2X = 1.1 - (bird2Cycle / 20) * 1.2
-        let bird2Y = 0.55 - (bird2Cycle / 20) * 0.05
+            // Bird 2 - flying right to left (mirrored), 20s animation with -6s delay
+            let bird2Cycle = (elapsedTime + 6).truncatingRemainder(dividingBy: 20)
+            let bird2Progress = bird2Cycle / 20
+            // translateX: 0 -> -200px -> -420px
+            let bird2X = 1.1 - bird2Progress * 1.2
+            let bird2Y = 0.55 - bird2Progress * 0.05
+            let bird2Opacity: Double = {
+                if bird2Progress < 0.05 { return bird2Progress / 0.05 * 0.6 }
+                else if bird2Progress > 0.95 { return (1 - bird2Progress) / 0.05 * 0.6 }
+                else { return 0.6 }
+            }()
 
-        SmallBirdView(elapsedTime: elapsedTime)
-            .frame(width: 30, height: 18)
-            .scaleEffect(x: -1, y: 1)
-            .position(x: width * bird2X, y: height * bird2Y)
-            .opacity(bird2X > 0 && bird2X < 1 ? 0.6 : 0)
+            BlueBirdView(elapsedTime: elapsedTime)
+                .frame(width: 30, height: 18)
+                .scaleEffect(x: -1, y: 1)
+                .position(x: width * bird2X, y: height * bird2Y)
+                .opacity(bird2Opacity)
+        }
+        .blur(radius: 0.5) // filter: blur(0.5px) from CSS
     }
 }
 
-// MARK: - Small Bird View
+// MARK: - Blue Bird View
 
-struct SmallBirdView: View {
+struct BlueBirdView: View {
     let elapsedTime: Double
 
     var body: some View {
-        let wingFlap = sin(elapsedTime * 30) * 0.4
+        // Wing flap: 0.2s ease-in-out infinite
+        let wingPhase = elapsedTime.truncatingRemainder(dividingBy: 0.2) / 0.2
+        let wingT = (1 - cos(wingPhase * .pi * 2)) / 2 // ease-in-out
+        let wingY = -3 * wingT // translateY: 0 -> -3px -> 0
+        let wingScaleY = 1 - 0.4 * wingT // scaleY: 1 -> 0.6 -> 1
 
         Canvas { context, size in
             let scale = size.width / 40
 
-            // Body
+            // Body - ellipse cx="20" cy="14" rx="10" ry="6" fill="#5090c0"
             let bodyPath = Path(ellipseIn: CGRect(
                 x: 10 * scale, y: 8 * scale, width: 20 * scale, height: 12 * scale
             ))
-            context.fill(bodyPath, with: .color(Color(red: 0.31, green: 0.56, blue: 0.75)))
+            context.fill(bodyPath, with: .color(Color(red: 0x50/255.0, green: 0x90/255.0, blue: 0xc0/255.0)))
 
-            // Head
+            // Head - circle cx="30" cy="11" r="5" fill="#60a0d0"
             let headPath = Path(ellipseIn: CGRect(
                 x: 25 * scale, y: 6 * scale, width: 10 * scale, height: 10 * scale
             ))
-            context.fill(headPath, with: .color(Color(red: 0.38, green: 0.63, blue: 0.82)))
+            context.fill(headPath, with: .color(Color(red: 0x60/255.0, green: 0xa0/255.0, blue: 0xd0/255.0)))
 
-            // Beak
+            // Beak - path d="M35,11 L40,12 L35,13" fill="#e0a050"
             var beakPath = Path()
             beakPath.move(to: CGPoint(x: 35 * scale, y: 11 * scale))
             beakPath.addLine(to: CGPoint(x: 40 * scale, y: 12 * scale))
             beakPath.addLine(to: CGPoint(x: 35 * scale, y: 13 * scale))
             beakPath.closeSubpath()
-            context.fill(beakPath, with: .color(Color(red: 0.88, green: 0.63, blue: 0.31)))
+            context.fill(beakPath, with: .color(Color(red: 0xe0/255.0, green: 0xa0/255.0, blue: 0x50/255.0)))
 
-            // Eye
+            // Eye - circle cx="32" cy="10" r="1.2" fill="#1a2a3a"
             let eyePath = Path(ellipseIn: CGRect(
-                x: 31 * scale, y: 9 * scale, width: 2.4 * scale, height: 2.4 * scale
+                x: 30.8 * scale, y: 8.8 * scale, width: 2.4 * scale, height: 2.4 * scale
             ))
-            context.fill(eyePath, with: .color(Color(red: 0.1, green: 0.16, blue: 0.23)))
+            context.fill(eyePath, with: .color(Color(red: 0x1a/255.0, green: 0x2a/255.0, blue: 0x3a/255.0)))
 
-            // Wing with flap
-            let wingY = 6 * scale + wingFlap * 10
+            // Wing with flap animation - ellipse cx="18" cy="12" rx="8" ry="5" fill="#4080b0"
+            let wingCenterY = (12 + wingY) * scale
+            let wingHeight = 10 * scale * wingScaleY
             let wingPath = Path(ellipseIn: CGRect(
-                x: 10 * scale, y: wingY, width: 16 * scale, height: 10 * scale
+                x: 10 * scale, y: wingCenterY - wingHeight / 2, width: 16 * scale, height: wingHeight
             ))
-            context.fill(wingPath, with: .color(Color(red: 0.25, green: 0.50, blue: 0.69)))
+            context.fill(wingPath, with: .color(Color(red: 0x40/255.0, green: 0x80/255.0, blue: 0xb0/255.0)))
 
-            // Tail
+            // Tail - path d="M10,12 L2,8 L4,14 L2,18 L10,16" fill="#4080b0"
             var tailPath = Path()
             tailPath.move(to: CGPoint(x: 10 * scale, y: 12 * scale))
             tailPath.addLine(to: CGPoint(x: 2 * scale, y: 8 * scale))
@@ -286,7 +348,7 @@ struct SmallBirdView: View {
             tailPath.addLine(to: CGPoint(x: 2 * scale, y: 18 * scale))
             tailPath.addLine(to: CGPoint(x: 10 * scale, y: 16 * scale))
             tailPath.closeSubpath()
-            context.fill(tailPath, with: .color(Color(red: 0.25, green: 0.50, blue: 0.69)))
+            context.fill(tailPath, with: .color(Color(red: 0x40/255.0, green: 0x80/255.0, blue: 0xb0/255.0)))
         }
     }
 }
@@ -306,11 +368,15 @@ struct LightRaysLayer: View {
         let rayIntensity = 0.2 + breathPhase * 0.3
 
         ZStack {
-            // Light ray 1
+            // Light ray 1: 30x150, top: 20%, left: 30%, rotate(-15deg), shimmer 4s
+            let ray1Phase = elapsedTime.truncatingRemainder(dividingBy: 4) / 4
+            let ray1T = (1 - cos(ray1Phase * .pi * 2)) / 2
+            let ray1Opacity = 0.2 + 0.3 * ray1T
+
             RoundedRectangle(cornerRadius: 5)
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 1, green: 1, blue: 0.78).opacity(0.4), .clear],
+                        colors: [Color(red: 1, green: 1, blue: 200/255.0).opacity(0.4), .clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -318,14 +384,18 @@ struct LightRaysLayer: View {
                 .frame(width: 30, height: 150)
                 .blur(radius: 10)
                 .rotationEffect(.degrees(-15))
-                .position(x: width * 0.30, y: height * 0.25)
-                .opacity(0.2 + sin(elapsedTime / 4) * 0.15)
+                .position(x: width * 0.30, y: height * 0.20 + 75)
+                .opacity(ray1Opacity)
 
-            // Light ray 2
+            // Light ray 2: 25x120, top: 25%, left: 55%, rotate(10deg), shimmer 5s
+            let ray2Phase = elapsedTime.truncatingRemainder(dividingBy: 5) / 5
+            let ray2T = (1 - cos(ray2Phase * .pi * 2)) / 2
+            let ray2Opacity = 0.25 + 0.2 * ray2T
+
             RoundedRectangle(cornerRadius: 5)
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 1, green: 1, blue: 0.78).opacity(0.4), .clear],
+                        colors: [Color(red: 1, green: 1, blue: 200/255.0).opacity(0.4), .clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -333,14 +403,18 @@ struct LightRaysLayer: View {
                 .frame(width: 25, height: 120)
                 .blur(radius: 10)
                 .rotationEffect(.degrees(10))
-                .position(x: width * 0.55, y: height * 0.30)
-                .opacity(0.25 + sin(elapsedTime / 5) * 0.10)
+                .position(x: width * 0.55, y: height * 0.25 + 60)
+                .opacity(ray2Opacity)
 
-            // Light ray 3
+            // Light ray 3: 20x100, top: 30%, left: 70%, rotate(5deg), shimmer 3.5s
+            let ray3Phase = elapsedTime.truncatingRemainder(dividingBy: 3.5) / 3.5
+            let ray3T = (1 - cos(ray3Phase * .pi * 2)) / 2
+            let ray3Opacity = 0.15 + 0.25 * ray3T
+
             RoundedRectangle(cornerRadius: 5)
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 1, green: 1, blue: 0.78).opacity(0.4), .clear],
+                        colors: [Color(red: 1, green: 1, blue: 200/255.0).opacity(0.4), .clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -348,10 +422,10 @@ struct LightRaysLayer: View {
                 .frame(width: 20, height: 100)
                 .blur(radius: 10)
                 .rotationEffect(.degrees(5))
-                .position(x: width * 0.70, y: height * 0.35)
-                .opacity(0.15 + sin(elapsedTime / 3.5) * 0.125)
+                .position(x: width * 0.70, y: height * 0.30 + 50)
+                .opacity(ray3Opacity)
         }
-        .opacity(rayIntensity + 0.3)
+        .opacity(rayIntensity) // Overall ray intensity based on breath
     }
 }
 
@@ -363,36 +437,94 @@ struct BranchWithLeaves: View {
     let width: CGFloat
     let height: CGFloat
 
+    // Leaf data structure matching HTML exactly
+    private struct LeafData {
+        let stemStart: CGPoint
+        let stemEnd: CGPoint
+        let stemWidth: CGFloat
+        let isLight: Bool
+        let leafPath: String // SVG path data
+        let veinPath: String // SVG vein path data
+    }
+
+    // Exact leaf data from HTML
+    private let leavesData: [LeafData] = [
+        // Leaf 1 - pivot at (82,282)
+        LeafData(stemStart: CGPoint(x: 100, y: 300), stemEnd: CGPoint(x: 82, y: 282), stemWidth: 2.5, isLight: false,
+                 leafPath: "M82,282 Q62,268 68,248 Q82,255 92,270 Q90,282 82,282",
+                 veinPath: "M82,280 Q74,266 72,255"),
+        // Leaf 2 - pivot at (128,268)
+        LeafData(stemStart: CGPoint(x: 110, y: 285), stemEnd: CGPoint(x: 128, y: 268), stemWidth: 2.5, isLight: true,
+                 leafPath: "M128,268 Q148,254 152,270 Q144,284 132,285 Q126,280 128,268",
+                 veinPath: "M130,270 Q144,260 150,272"),
+        // Leaf 3 - pivot at (122,235)
+        LeafData(stemStart: CGPoint(x: 140, y: 250), stemEnd: CGPoint(x: 122, y: 235), stemWidth: 2.5, isLight: false,
+                 leafPath: "M122,235 Q102,220 110,200 Q124,210 130,228 Q127,238 122,235",
+                 veinPath: "M123,232 Q114,218 114,205"),
+        // Leaf 4 - pivot at (168,218)
+        LeafData(stemStart: CGPoint(x: 150, y: 235), stemEnd: CGPoint(x: 168, y: 218), stemWidth: 2.5, isLight: true,
+                 leafPath: "M168,218 Q188,204 193,220 Q185,235 172,235 Q166,228 168,218",
+                 veinPath: "M170,220 Q184,210 190,222"),
+        // Leaf 5 - pivot at (142,182)
+        LeafData(stemStart: CGPoint(x: 160, y: 200), stemEnd: CGPoint(x: 142, y: 182), stemWidth: 2, isLight: false,
+                 leafPath: "M142,182 Q122,166 132,148 Q148,160 152,178 Q148,186 142,182",
+                 veinPath: "M143,180 Q134,166 138,153"),
+        // Leaf 6 - pivot at (195,158)
+        LeafData(stemStart: CGPoint(x: 175, y: 175), stemEnd: CGPoint(x: 195, y: 158), stemWidth: 2, isLight: true,
+                 leafPath: "M195,158 Q215,144 220,160 Q212,175 198,174 Q192,168 195,158",
+                 veinPath: "M197,160 Q212,150 218,162"),
+        // Leaf 7 - pivot at (182,122)
+        LeafData(stemStart: CGPoint(x: 200, y: 140), stemEnd: CGPoint(x: 182, y: 122), stemWidth: 2, isLight: false,
+                 leafPath: "M182,122 Q164,106 174,90 Q190,102 192,118 Q188,126 182,122",
+                 veinPath: "M183,120 Q174,106 178,95"),
+        // Leaf 8 - pivot at (240,104)
+        LeafData(stemStart: CGPoint(x: 220, y: 120), stemEnd: CGPoint(x: 240, y: 104), stemWidth: 2, isLight: true,
+                 leafPath: "M240,104 Q260,90 265,106 Q256,120 244,118 Q238,112 240,104",
+                 veinPath: "M242,106 Q256,96 263,108"),
+        // Leaf 9 - pivot at (240,78)
+        LeafData(stemStart: CGPoint(x: 255, y: 95), stemEnd: CGPoint(x: 240, y: 78), stemWidth: 2, isLight: false,
+                 leafPath: "M240,78 Q224,62 234,48 Q250,60 252,76 Q247,82 240,78",
+                 veinPath: "M241,76 Q232,64 238,53"),
+        // Leaf 10 - pivot at (298,65)
+        LeafData(stemStart: CGPoint(x: 280, y: 80), stemEnd: CGPoint(x: 298, y: 65), stemWidth: 2, isLight: true,
+                 leafPath: "M298,65 Q316,52 320,68 Q310,82 298,80 Q293,74 298,65",
+                 veinPath: "M300,67 Q313,58 318,70")
+    ]
+
     var body: some View {
         let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
         let windPhase = cos(cycleProgress * .pi * 2)
         let breathPhase = (1 - windPhase) / 2
 
+        // Add subtle wind gusts variation (matching HTML exactly)
         let gustVariation = sin(elapsedTime / 0.8) * 0.08 + sin(elapsedTime / 1.2) * 0.05
         let finalPhase = breathPhase + gustVariation * breathPhase
 
-        let branchRotation = finalPhase * 12
-        let branchLift = finalPhase * 25
+        // Branch movement - whole branch rises and curves with wind
+        let branchRotation = finalPhase * 12 // Gentle rotation in degrees
+        let branchLift = finalPhase * 25 // Vertical movement
 
         Canvas { context, size in
             let centerX = size.width / 2
             let centerY = size.height / 2
             let scale = min(size.width / 300, size.height / 400)
 
-            // Apply branch group transform
+            // Translate to position the branch container at center
             context.translateBy(x: centerX - 150 * scale, y: centerY - 200 * scale)
 
-            // Simulate rotation around bottom left
+            // Apply branch group transform: rotate around bottom-left origin (0%, 100%)
+            // transformOrigin: '0% 100%' means (0, 380) in SVG coordinates
             let rotationAngle = -branchRotation * .pi / 180
             context.translateBy(x: 0, y: 380 * scale)
             context.rotate(by: Angle(radians: rotationAngle))
             context.translateBy(x: 0, y: -380 * scale - branchLift)
 
-            // Branch gradient colors
-            let branchDark = Color(red: 0.29, green: 0.21, blue: 0.15)
-            let branchMid = Color(red: 0.36, green: 0.27, blue: 0.20)
+            // Branch gradient colors (exact from HTML)
+            let branchDark = Color(red: 0x4a/255.0, green: 0x35/255.0, blue: 0x25/255.0)
+            let branchMid = Color(red: 0x5d/255.0, green: 0x46/255.0, blue: 0x32/255.0)
+            let branchTexture = Color(red: 0x3d/255.0, green: 0x2a/255.0, blue: 0x1a/255.0)
 
-            // Main branch
+            // Main branch path: d="M-20,380 Q60,350 100,300 Q140,250 160,200 Q180,150 220,120 Q260,90 290,75"
             var branchPath = Path()
             branchPath.move(to: CGPoint(x: -20 * scale, y: 380 * scale))
             branchPath.addQuadCurve(
@@ -422,93 +554,131 @@ struct BranchWithLeaves: View {
                 style: StrokeStyle(lineWidth: 10 * scale, lineCap: .round)
             )
 
-            // Stems and leaves data
-            let leavesData: [(stemStart: CGPoint, stemEnd: CGPoint, isLight: Bool, pivotX: CGFloat, pivotY: CGFloat)] = [
-                (CGPoint(x: 100, y: 300), CGPoint(x: 82, y: 282), false, 82, 282),
-                (CGPoint(x: 110, y: 285), CGPoint(x: 128, y: 268), true, 128, 268),
-                (CGPoint(x: 140, y: 250), CGPoint(x: 122, y: 235), false, 122, 235),
-                (CGPoint(x: 150, y: 235), CGPoint(x: 168, y: 218), true, 168, 218),
-                (CGPoint(x: 160, y: 200), CGPoint(x: 142, y: 182), false, 142, 182),
-                (CGPoint(x: 175, y: 175), CGPoint(x: 195, y: 158), true, 195, 158),
-                (CGPoint(x: 200, y: 140), CGPoint(x: 182, y: 122), false, 182, 122),
-                (CGPoint(x: 220, y: 120), CGPoint(x: 240, y: 104), true, 240, 104),
-                (CGPoint(x: 255, y: 95), CGPoint(x: 240, y: 78), false, 240, 78),
-                (CGPoint(x: 280, y: 80), CGPoint(x: 298, y: 65), true, 298, 65)
-            ]
+            // Branch texture lines
+            var texture1 = Path()
+            texture1.move(to: CGPoint(x: 30 * scale, y: 350 * scale))
+            texture1.addQuadCurve(
+                to: CGPoint(x: 110 * scale, y: 280 * scale),
+                control: CGPoint(x: 80 * scale, y: 320 * scale)
+            )
+            context.stroke(texture1, with: .color(branchTexture.opacity(0.3)), style: StrokeStyle(lineWidth: 1 * scale))
+
+            var texture2 = Path()
+            texture2.move(to: CGPoint(x: 130 * scale, y: 240 * scale))
+            texture2.addQuadCurve(
+                to: CGPoint(x: 190 * scale, y: 165 * scale),
+                control: CGPoint(x: 160 * scale, y: 200 * scale)
+            )
+            context.stroke(texture2, with: .color(branchTexture.opacity(0.25)), style: StrokeStyle(lineWidth: 1 * scale))
 
             // Draw stems
             for leaf in leavesData {
                 var stemPath = Path()
                 stemPath.move(to: CGPoint(x: leaf.stemStart.x * scale, y: leaf.stemStart.y * scale))
                 stemPath.addLine(to: CGPoint(x: leaf.stemEnd.x * scale, y: leaf.stemEnd.y * scale))
-                context.stroke(stemPath, with: .color(branchMid), style: StrokeStyle(lineWidth: 2.5 * scale, lineCap: .round))
+                context.stroke(stemPath, with: .color(branchMid), style: StrokeStyle(lineWidth: leaf.stemWidth * scale, lineCap: .round))
             }
 
-            // Draw leaves with animation
-            let leafGreen = Color(red: 0.35, green: 0.54, blue: 0.31)
-            let leafGreenLight = Color(red: 0.42, green: 0.60, blue: 0.38)
+            // Leaf gradient colors (exact from HTML)
+            // leafGradient: #5a8a50 -> #4a7a40 -> #3a6a30
+            // leafGradientLight: #6a9a60 -> #5a8a50 -> #4a7a40
+            let leafGreen = Color(red: 0x4a/255.0, green: 0x7a/255.0, blue: 0x40/255.0)
+            let leafGreenLight = Color(red: 0x5a/255.0, green: 0x8a/255.0, blue: 0x50/255.0)
+            let veinDark = Color(red: 0x3a/255.0, green: 0x5a/255.0, blue: 0x30/255.0)
+            let veinLight = Color(red: 0x4a/255.0, green: 0x6a/255.0, blue: 0x40/255.0)
 
+            // Draw leaves with individual animation
             for (index, leaf) in leavesData.enumerated() {
-                let windStrength = breathPhase * 8
+                let pivotX = leaf.stemEnd.x
+                let pivotY = leaf.stemEnd.y
+
+                // Calculate leaf rotation (matching HTML JS exactly)
+                let windStrength = breathPhase * 8 // Max rotation in degrees
                 let flutter = sin(elapsedTime / 0.4 + Double(index) * 1.5) * (2 + windStrength * 0.5)
                 let sway = sin(elapsedTime / 0.6 + Double(index) * 0.8) * windStrength * 0.3
                 let totalRotation = flutter + sway
 
-                // Save context state
-                context.translateBy(x: leaf.pivotX * scale, y: leaf.pivotY * scale)
+                // Apply rotation around pivot point
+                context.translateBy(x: pivotX * scale, y: pivotY * scale)
                 context.rotate(by: Angle(degrees: totalRotation))
-                context.translateBy(x: -leaf.pivotX * scale, y: -leaf.pivotY * scale)
+                context.translateBy(x: -pivotX * scale, y: -pivotY * scale)
 
+                // Parse and draw leaf path
+                let leafPath = parseSVGPath(leaf.leafPath, scale: scale)
                 let leafColor = leaf.isLight ? leafGreenLight : leafGreen
-                let px = leaf.pivotX * scale
-                let py = leaf.pivotY * scale
-
-                // Draw leaf shape
-                var leafPath = Path()
-
-                if leaf.isLight {
-                    // Right-side leaves
-                    leafPath.move(to: CGPoint(x: px, y: py))
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px + 24 * scale, y: py + 2 * scale),
-                        control: CGPoint(x: px + 20 * scale, y: py - 14 * scale)
-                    )
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px + 4 * scale, y: py + 17 * scale),
-                        control: CGPoint(x: px + 16 * scale, y: py + 17 * scale)
-                    )
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px, y: py),
-                        control: CGPoint(x: px - 2 * scale, y: py + 10 * scale)
-                    )
-                } else {
-                    // Left-side leaves
-                    leafPath.move(to: CGPoint(x: px, y: py))
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px - 10 * scale, y: py - 30 * scale),
-                        control: CGPoint(x: px - 20 * scale, y: py - 15 * scale)
-                    )
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px + 10 * scale, y: py - 12 * scale),
-                        control: CGPoint(x: px + 2 * scale, y: py - 25 * scale)
-                    )
-                    leafPath.addQuadCurve(
-                        to: CGPoint(x: px, y: py),
-                        control: CGPoint(x: px + 8 * scale, y: py - 2 * scale)
-                    )
-                }
-
-                leafPath.closeSubpath()
                 context.fill(leafPath, with: .color(leafColor))
 
-                // Restore context
-                context.translateBy(x: leaf.pivotX * scale, y: leaf.pivotY * scale)
+                // Parse and draw vein path
+                let veinPath = parseSVGPath(leaf.veinPath, scale: scale)
+                let veinColor = leaf.isLight ? veinLight : veinDark
+                context.stroke(veinPath, with: .color(veinColor.opacity(0.5)), style: StrokeStyle(lineWidth: 0.8 * scale))
+
+                // Restore rotation
+                context.translateBy(x: pivotX * scale, y: pivotY * scale)
                 context.rotate(by: Angle(degrees: -totalRotation))
-                context.translateBy(x: -leaf.pivotX * scale, y: -leaf.pivotY * scale)
+                context.translateBy(x: -pivotX * scale, y: -pivotY * scale)
             }
         }
         .frame(width: 300, height: 400)
         .position(x: width / 2, y: height / 2)
+    }
+
+    // Parse simplified SVG path commands
+    private func parseSVGPath(_ svgPath: String, scale: CGFloat) -> Path {
+        var path = Path()
+        let commands = svgPath.components(separatedBy: " ")
+
+        var i = 0
+        var currentPoint = CGPoint.zero
+
+        while i < commands.count {
+            let cmd = commands[i]
+
+            if cmd.hasPrefix("M") {
+                let coords = parseCoords(String(cmd.dropFirst()))
+                currentPoint = CGPoint(x: coords.0 * scale, y: coords.1 * scale)
+                path.move(to: currentPoint)
+                i += 1
+            } else if cmd.hasPrefix("Q") {
+                let controlCoords = parseCoords(String(cmd.dropFirst()))
+                i += 1
+                if i < commands.count {
+                    let endCoords = parseCoords(commands[i])
+                    let control = CGPoint(x: controlCoords.0 * scale, y: controlCoords.1 * scale)
+                    let end = CGPoint(x: endCoords.0 * scale, y: endCoords.1 * scale)
+                    path.addQuadCurve(to: end, control: control)
+                    currentPoint = end
+                    i += 1
+                }
+            } else if cmd.hasPrefix("L") {
+                let coords = parseCoords(String(cmd.dropFirst()))
+                let point = CGPoint(x: coords.0 * scale, y: coords.1 * scale)
+                path.addLine(to: point)
+                currentPoint = point
+                i += 1
+            } else {
+                // Try parsing as coordinates (implicit command continuation)
+                let coords = parseCoords(cmd)
+                if coords.0 != 0 || coords.1 != 0 {
+                    let point = CGPoint(x: coords.0 * scale, y: coords.1 * scale)
+                    path.addLine(to: point)
+                    currentPoint = point
+                }
+                i += 1
+            }
+        }
+
+        return path
+    }
+
+    private func parseCoords(_ str: String) -> (CGFloat, CGFloat) {
+        let parts = str.components(separatedBy: ",")
+        if parts.count >= 2 {
+            let x = CGFloat(Double(parts[0]) ?? 0)
+            let y = CGFloat(Double(parts[1]) ?? 0)
+            return (x, y)
+        }
+        return (0, 0)
     }
 }
 

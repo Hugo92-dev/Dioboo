@@ -15,9 +15,11 @@ struct BreatheHotairballoonView: View {
 
     @State private var isInhaling: Bool = true
     @State private var cycleProgress: CGFloat = 0
+    @State private var elapsedTime: TimeInterval = 0
     @State private var animationTimer: Timer?
     @State private var startTime: Date?
     @State private var timestamp: TimeInterval = 0
+    @State private var sceneOpacity: Double = 0
 
     private let cycleDuration: TimeInterval = 10.0
     private let riseHeight: CGFloat = 180
@@ -26,40 +28,41 @@ struct BreatheHotairballoonView: View {
         GeometryReader { geo in
             ZStack {
                 // Sky gradient - exact from HTML
+                // #1a3a5a 0%, #2a5a7a 15%, #4a8aaa 35%, #7ab4d4 55%, #a8d4e8 70%, #d4e8f0 85%, #e8f4f8 100%
                 LinearGradient(
-                    colors: [
-                        Color(hex: "1a3a5a"),
-                        Color(hex: "2a5a7a"),
-                        Color(hex: "4a8aaa"),
-                        Color(hex: "7ab4d4"),
-                        Color(hex: "a8d4e8"),
-                        Color(hex: "d4e8f0"),
-                        Color(hex: "e8f4f8")
+                    stops: [
+                        .init(color: Color(hex: "1a3a5a"), location: 0.0),
+                        .init(color: Color(hex: "2a5a7a"), location: 0.15),
+                        .init(color: Color(hex: "4a8aaa"), location: 0.35),
+                        .init(color: Color(hex: "7ab4d4"), location: 0.55),
+                        .init(color: Color(hex: "a8d4e8"), location: 0.70),
+                        .init(color: Color(hex: "d4e8f0"), location: 0.85),
+                        .init(color: Color(hex: "e8f4f8"), location: 1.0)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
 
-                // High altitude clouds
-                BalloonCloudsHighLayer()
+                // High altitude clouds (top 8%)
+                HotAirBalloonCloudsHighLayer(timestamp: timestamp)
 
-                // Mid altitude clouds
-                BalloonCloudsMidLayer()
+                // Mid altitude clouds (top 25%)
+                HotAirBalloonCloudsMidLayer(timestamp: timestamp)
 
-                // Mist layer
-                BalloonMistLayer(cycleProgress: cycleProgress, riseHeight: riseHeight)
+                // Mist layer at 42%
+                HotAirBalloonMistLayer(cycleProgress: cycleProgress, riseHeight: riseHeight)
 
                 // Background balloons
-                BalloonBackgroundBalloonsLayer()
+                HotAirBalloonBackgroundBalloonsLayer(timestamp: timestamp)
 
-                // Landscape
-                BalloonLandscapeView(cycleProgress: cycleProgress, riseHeight: riseHeight)
-                    .frame(height: geo.size.height * 0.55)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.85)
+                // Landscape with parallax
+                HotAirBalloonLandscapeView(cycleProgress: cycleProgress, riseHeight: riseHeight)
+                    .frame(width: geo.size.width * 1.2, height: geo.size.height * 0.55)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.90)
 
                 // Main hot air balloon
-                BalloonMainView(
+                HotAirBalloonMainView(
                     cycleProgress: cycleProgress,
                     riseHeight: riseHeight,
                     timestamp: timestamp,
@@ -69,7 +72,7 @@ struct BreatheHotairballoonView: View {
 
                 // UI Overlay
                 VStack {
-                    // Back button - glass effect
+                    // Back button - glass effect matching HTML
                     HStack {
                         Button(action: onBack) {
                             Circle()
@@ -85,6 +88,12 @@ struct BreatheHotairballoonView: View {
                                         .font(.system(size: 18, weight: .medium))
                                 )
                         }
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 42, height: 42)
+                                .opacity(0.5)
+                        )
                         Spacer()
                     }
                     .padding(.horizontal, 20)
@@ -92,26 +101,58 @@ struct BreatheHotairballoonView: View {
 
                     Spacer()
 
-                    // Phase text
+                    // Phase text - exact from HTML
                     Text(isInhaling ? "INHALE" : "EXHALE")
-                        .font(.custom("Nunito", size: 22).weight(.regular))
+                        .font(.system(size: 22, weight: .regular))
                         .foregroundColor(Color(hex: "F5F7FF"))
                         .tracking(6)
-                        .shadow(color: Color(hex: "003250").opacity(0.4), radius: 8, y: 2)
+                        .shadow(color: Color(hex: "003250").opacity(0.4), radius: 15, y: 2)
                         .padding(.bottom, 8)
 
-                    // Timer
-                    BreathingTimer(duration: duration, onComplete: onComplete)
-                        .padding(.bottom, 40)
+                    // Timer text
+                    Text(formatTime(remaining: max(0, Double(duration * 60) - elapsedTime)))
+                        .font(.system(size: 15, weight: .light))
+                        .foregroundColor(Color.white.opacity(0.8))
+                        .padding(.bottom, 8)
+
+                    // Progress bar
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white.opacity(0.2))
+                            .frame(height: 3)
+
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white.opacity(0.8))
+                            .frame(width: max(0, (elapsedTime / Double(duration * 60)) * (geo.size.width - 90)), height: 3)
+                    }
+                    .padding(.horizontal, 45)
+                    .padding(.bottom, 50)
                 }
             }
+            .opacity(sceneOpacity)
         }
         .onAppear {
-            startAnimation()
+            // Fade in animation matching HTML (1s ease, 0.3s delay)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeOut(duration: 1.0)) {
+                    sceneOpacity = 1.0
+                }
+            }
+            // Start breathing animation after 1.2s (matching HTML)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                startAnimation()
+            }
         }
         .onDisappear {
             animationTimer?.invalidate()
         }
+    }
+
+    private func formatTime(remaining: TimeInterval) -> String {
+        let secs = Int(ceil(remaining))
+        let minutes = secs / 60
+        let seconds = secs % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 
     private func startAnimation() {
@@ -120,7 +161,15 @@ struct BreatheHotairballoonView: View {
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { _ in
             guard let start = startTime else { return }
             let elapsed = Date().timeIntervalSince(start)
-            timestamp = elapsed * 1000 // Convert to milliseconds for consistency
+            timestamp = elapsed * 1000 // Convert to milliseconds for consistency with HTML
+            elapsedTime = elapsed
+
+            // Check if complete
+            if elapsed >= Double(duration * 60) {
+                animationTimer?.invalidate()
+                onComplete()
+                return
+            }
 
             let progress = (elapsed.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
             cycleProgress = progress
@@ -129,86 +178,69 @@ struct BreatheHotairballoonView: View {
     }
 }
 
-// MARK: - High Altitude Clouds
+// MARK: - High Altitude Clouds (8% from top)
 
-struct BalloonCloudsHighLayer: View {
-    @State private var offset1: CGFloat = 0
-    @State private var offset2: CGFloat = 0
+struct HotAirBalloonCloudsHighLayer: View {
+    let timestamp: TimeInterval
 
     var body: some View {
         GeometryReader { geo in
+            // Cloud H1 - left: 5%, width: 80px, height: 25px, 50s animation
+            let drift1 = sin(timestamp / 50000 * .pi * 2) * 30
             Ellipse()
                 .fill(Color.white.opacity(0.4))
                 .frame(width: 80, height: 25)
                 .blur(radius: 15)
-                .offset(x: offset1)
-                .position(x: geo.size.width * 0.05 + 40, y: geo.size.height * 0.08)
+                .position(x: geo.size.width * 0.05 + 40 + drift1, y: geo.size.height * 0.08)
 
+            // Cloud H2 - left: 60%, width: 100px, height: 30px, opacity: 0.3, 60s reverse
+            let drift2 = -sin(timestamp / 60000 * .pi * 2) * 30
             Ellipse()
                 .fill(Color.white.opacity(0.3))
                 .frame(width: 100, height: 30)
                 .blur(radius: 15)
-                .offset(x: offset2)
-                .position(x: geo.size.width * 0.60 + 50, y: geo.size.height * 0.08)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 50).repeatForever(autoreverses: true)) {
-                offset1 = 60
-            }
-            withAnimation(.easeInOut(duration: 60).repeatForever(autoreverses: true)) {
-                offset2 = -60
-            }
+                .position(x: geo.size.width * 0.60 + 50 + drift2, y: geo.size.height * 0.08)
         }
     }
 }
 
-// MARK: - Mid Altitude Clouds
+// MARK: - Mid Altitude Clouds (25% from top)
 
-struct BalloonCloudsMidLayer: View {
-    @State private var offset1: CGFloat = 0
-    @State private var offset2: CGFloat = 0
-    @State private var offset3: CGFloat = 0
+struct HotAirBalloonCloudsMidLayer: View {
+    let timestamp: TimeInterval
 
     var body: some View {
         GeometryReader { geo in
+            // Cloud M1 - left: -10%, width: 120px, height: 35px, opacity: 0.35, 45s linear
+            let drift1 = (timestamp.truncatingRemainder(dividingBy: 45000)) / 45000 * 60
             Ellipse()
                 .fill(Color.white.opacity(0.35))
                 .frame(width: 120, height: 35)
                 .blur(radius: 15)
-                .offset(x: offset1)
-                .position(x: -10, y: geo.size.height * 0.25)
+                .position(x: geo.size.width * -0.10 + 60 + drift1, y: geo.size.height * 0.25)
 
+            // Cloud M2 - left: 50%, width: 90px, height: 28px, opacity: 0.25, 55s
+            let drift2 = sin(timestamp / 55000 * .pi * 2) * 30
             Ellipse()
                 .fill(Color.white.opacity(0.25))
                 .frame(width: 90, height: 28)
                 .blur(radius: 15)
-                .offset(x: offset2)
-                .position(x: geo.size.width * 0.50 + 45, y: geo.size.height * 0.25)
+                .position(x: geo.size.width * 0.50 + 45 + drift2, y: geo.size.height * 0.25)
 
+            // Cloud M3 - left: 80%, width: 70px, height: 22px, opacity: 0.3, 40s reverse
+            let drift3 = -sin(timestamp / 40000 * .pi * 2) * 30
             Ellipse()
                 .fill(Color.white.opacity(0.3))
                 .frame(width: 70, height: 22)
                 .blur(radius: 15)
-                .offset(x: offset3)
-                .position(x: geo.size.width * 0.80 + 35, y: geo.size.height * 0.25)
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 45).repeatForever(autoreverses: false)) {
-                offset1 = 400
-            }
-            withAnimation(.easeInOut(duration: 55).repeatForever(autoreverses: true)) {
-                offset2 = 60
-            }
-            withAnimation(.easeInOut(duration: 40).repeatForever(autoreverses: true)) {
-                offset3 = -60
-            }
+                .position(x: geo.size.width * 0.80 + 35 + drift3, y: geo.size.height * 0.25)
         }
     }
 }
 
-// MARK: - Mist Layer
+// MARK: - Mist Layer (42% from top)
 
-struct BalloonMistLayer: View {
+struct HotAirBalloonMistLayer: View {
     let cycleProgress: CGFloat
     let riseHeight: CGFloat
 
@@ -222,18 +254,18 @@ struct BalloonMistLayer: View {
             Rectangle()
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.clear,
-                            Color.white.opacity(0.15),
-                            Color.white.opacity(0.25),
-                            Color.white.opacity(0.15),
-                            Color.clear
+                        stops: [
+                            .init(color: Color.clear, location: 0.0),
+                            .init(color: Color.white.opacity(0.15), location: 0.3),
+                            .init(color: Color.white.opacity(0.25), location: 0.5),
+                            .init(color: Color.white.opacity(0.15), location: 0.7),
+                            .init(color: Color.clear, location: 1.0)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .frame(height: 60)
+                .frame(width: geo.size.width * 1.2, height: 60)
                 .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
                 .opacity(0.3 + max(0, mistProximity) * 0.4)
         }
@@ -242,64 +274,110 @@ struct BalloonMistLayer: View {
 
 // MARK: - Background Balloons
 
-struct BalloonBackgroundBalloonsLayer: View {
-    @State private var balloon1Offset: CGPoint = .zero
-    @State private var balloon2Offset: CGPoint = .zero
-    @State private var balloon3Offset: CGPoint = .zero
+struct HotAirBalloonBackgroundBalloonsLayer: View {
+    let timestamp: TimeInterval
 
     var body: some View {
         GeometryReader { geo in
-            // Far balloon - blue/purple tones
-            BalloonSmallSVG(colors: [Color(hex: "6a7a9a"), Color(hex: "8090b0"), Color(hex: "a0b0d0")])
-                .frame(width: 28, height: 42)
-                .opacity(0.4)
-                .offset(x: balloon1Offset.x, y: balloon1Offset.y)
-                .position(x: geo.size.width * 0.08 + 14, y: geo.size.height * 0.12)
+            // Balloon 1 - Far, top: 12%, left: 8%, size: 28x42, opacity: 0.4
+            // Animation: 25s, moves to (8px, -15px), (15px, -5px), (5px, -20px)
+            let t1 = (timestamp.truncatingRemainder(dividingBy: 25000)) / 25000
+            let offset1 = balloonOffset1(t: t1)
+            HotAirBalloonSmallSVG(colors: [
+                Color(hex: "6a7a9a"),
+                Color(hex: "8090b0"),
+                Color(hex: "a0b0d0")
+            ])
+            .frame(width: 28, height: 42)
+            .opacity(0.4)
+            .offset(x: offset1.x, y: offset1.y)
+            .position(x: geo.size.width * 0.08 + 14, y: geo.size.height * 0.12)
 
-            // Mid balloon - green/teal tones
-            BalloonSmallSVG(colors: [Color(hex: "4a8a7a"), Color(hex: "5aa090"), Color(hex: "7ac0b0")])
-                .frame(width: 38, height: 57)
-                .opacity(0.55)
-                .offset(x: balloon2Offset.x, y: balloon2Offset.y)
-                .position(x: geo.size.width * 0.88, y: geo.size.height * 0.28)
+            // Balloon 2 - Mid, top: 28%, right: 12%, size: 38x57, opacity: 0.55
+            // Animation: 30s, moves to (-10px, -20px), (-5px, 10px)
+            let t2 = (timestamp.truncatingRemainder(dividingBy: 30000)) / 30000
+            let offset2 = balloonOffset2(t: t2)
+            HotAirBalloonSmallSVG(colors: [
+                Color(hex: "4a8a7a"),
+                Color(hex: "5aa090"),
+                Color(hex: "7ac0b0"),
+                Color(hex: "a0e0d0")
+            ])
+            .frame(width: 38, height: 57)
+            .opacity(0.55)
+            .offset(x: offset2.x, y: offset2.y)
+            .position(x: geo.size.width * 0.88, y: geo.size.height * 0.28)
 
-            // Near balloon - pink/magenta tones
-            BalloonSmallSVG(colors: [Color(hex: "9a5a7a"), Color(hex: "b07090"), Color(hex: "c890a8")])
-                .frame(width: 45, height: 68)
-                .opacity(0.5)
-                .offset(x: balloon3Offset.x, y: balloon3Offset.y)
-                .position(x: geo.size.width * 0.05 + 22, y: geo.size.height * 0.48)
+            // Balloon 3 - Near, top: 48%, left: 5%, size: 45x68, opacity: 0.5
+            // Animation: 22s, moves to (12px, -25px)
+            let t3 = (timestamp.truncatingRemainder(dividingBy: 22000)) / 22000
+            let offset3X = sin(t3 * .pi * 2) * 6 + sin(t3 * .pi) * 6
+            let offset3Y = -abs(sin(t3 * .pi)) * 25
+            HotAirBalloonSmallSVG(colors: [
+                Color(hex: "9a5a7a"),
+                Color(hex: "b07090"),
+                Color(hex: "c890a8"),
+                Color(hex: "e0b0c0")
+            ])
+            .frame(width: 45, height: 68)
+            .opacity(0.5)
+            .offset(x: offset3X, y: offset3Y)
+            .position(x: geo.size.width * 0.05 + 22, y: geo.size.height * 0.48)
         }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 25).repeatForever(autoreverses: true)) {
-                balloon1Offset = CGPoint(x: 15, y: -20)
-            }
-            withAnimation(.easeInOut(duration: 30).repeatForever(autoreverses: true)) {
-                balloon2Offset = CGPoint(x: -10, y: -20)
-            }
-            withAnimation(.easeInOut(duration: 22).repeatForever(autoreverses: true)) {
-                balloon3Offset = CGPoint(x: 12, y: -25)
-            }
+    }
+
+    private func balloonOffset1(t: CGFloat) -> CGPoint {
+        // 0%: (0,0), 25%: (8,-15), 50%: (15,-5), 75%: (5,-20), 100%: (0,0)
+        if t < 0.25 {
+            let p = t / 0.25
+            return CGPoint(x: p * 8, y: p * -15)
+        } else if t < 0.5 {
+            let p = (t - 0.25) / 0.25
+            return CGPoint(x: 8 + p * 7, y: -15 + p * 10)
+        } else if t < 0.75 {
+            let p = (t - 0.5) / 0.25
+            return CGPoint(x: 15 - p * 10, y: -5 - p * 15)
+        } else {
+            let p = (t - 0.75) / 0.25
+            return CGPoint(x: 5 - p * 5, y: -20 + p * 20)
+        }
+    }
+
+    private func balloonOffset2(t: CGFloat) -> CGPoint {
+        // 0%: (0,0), 33%: (-10,-20), 66%: (-5,10), 100%: (0,0)
+        if t < 0.33 {
+            let p = t / 0.33
+            return CGPoint(x: p * -10, y: p * -20)
+        } else if t < 0.66 {
+            let p = (t - 0.33) / 0.33
+            return CGPoint(x: -10 + p * 5, y: -20 + p * 30)
+        } else {
+            let p = (t - 0.66) / 0.34
+            return CGPoint(x: -5 + p * 5, y: 10 - p * 10)
         }
     }
 }
 
-struct BalloonSmallSVG: View {
+// Small background balloon SVG
+struct HotAirBalloonSmallSVG: View {
     let colors: [Color]
 
     var body: some View {
         Canvas { context, size in
             let centerX = size.width / 2
             let envelopeHeight = size.height * 0.65
-            let basketY = size.height * 0.85
+            let envelopeCenterY = envelopeHeight / 2
+            let basketY = size.height * 0.80
+            let basketHeight = size.height * 0.12
 
-            // Envelope layers
-            for i in 0..<min(colors.count, 3) {
-                let radiusX = (size.width / 2) * (1 - CGFloat(i) * 0.2)
-                let radiusY = envelopeHeight / 2 * (1 - CGFloat(i) * 0.2)
+            // Draw envelope layers from outer to inner
+            for i in 0..<min(colors.count, 4) {
+                let factor = 1 - CGFloat(i) * 0.22
+                let radiusX = (size.width / 2 - 2) * factor
+                let radiusY = (envelopeHeight / 2 - 2) * factor
                 let envelope = Path(ellipseIn: CGRect(
                     x: centerX - radiusX,
-                    y: envelopeHeight / 2 - radiusY,
+                    y: envelopeCenterY - radiusY,
                     width: radiusX * 2,
                     height: radiusY * 2
                 ))
@@ -307,28 +385,33 @@ struct BalloonSmallSVG: View {
             }
 
             // Basket
-            let basketWidth = size.width * 0.3
-            let basketHeight = size.height * 0.12
-            let basketRect = CGRect(x: centerX - basketWidth / 2, y: basketY, width: basketWidth, height: basketHeight)
-            context.fill(Path(roundedRect: basketRect, cornerRadius: 1), with: .color(Color(hex: "7a6050")))
+            let basketWidth = size.width * 0.28
+            let basketRect = CGRect(
+                x: centerX - basketWidth / 2,
+                y: basketY,
+                width: basketWidth,
+                height: basketHeight
+            )
+            context.fill(Path(roundedRect: basketRect, cornerRadius: 1), with: .color(Color(hex: "8a7060")))
 
             // Ropes
+            let ropeColor = Color(hex: "7a6050")
             var rope1 = Path()
-            rope1.move(to: CGPoint(x: centerX - 3, y: envelopeHeight))
-            rope1.addLine(to: CGPoint(x: centerX - basketWidth / 2 + 2, y: basketY))
-            context.stroke(rope1, with: .color(Color(hex: "6a5040")), lineWidth: 0.5)
+            rope1.move(to: CGPoint(x: centerX - 2, y: envelopeHeight))
+            rope1.addLine(to: CGPoint(x: centerX - basketWidth / 2 + 1, y: basketY))
+            context.stroke(rope1, with: .color(ropeColor), lineWidth: 0.6)
 
             var rope2 = Path()
-            rope2.move(to: CGPoint(x: centerX + 3, y: envelopeHeight))
-            rope2.addLine(to: CGPoint(x: centerX + basketWidth / 2 - 2, y: basketY))
-            context.stroke(rope2, with: .color(Color(hex: "6a5040")), lineWidth: 0.5)
+            rope2.move(to: CGPoint(x: centerX + 2, y: envelopeHeight))
+            rope2.addLine(to: CGPoint(x: centerX + basketWidth / 2 - 1, y: basketY))
+            context.stroke(rope2, with: .color(ropeColor), lineWidth: 0.6)
         }
     }
 }
 
-// MARK: - Landscape View
+// MARK: - Landscape View with Parallax
 
-struct BalloonLandscapeView: View {
+struct HotAirBalloonLandscapeView: View {
     let cycleProgress: CGFloat
     let riseHeight: CGFloat
 
@@ -336,17 +419,31 @@ struct BalloonLandscapeView: View {
         let verticalWave = cos(cycleProgress * .pi * 2)
         let verticalPos = (1 - verticalWave) / 2 * riseHeight
         let balloonAltitude = verticalPos / riseHeight
+        // Parallax: landscapeScale = 1 + (1 - balloonAltitude) * 0.15
+        // landscapeY = balloonAltitude * 30
         let landscapeScale = 1 + (1 - balloonAltitude) * 0.15
         let landscapeY = balloonAltitude * 30
 
         Canvas { context, size in
-            // Distant hills
+            // Distant hills - #7a9a8a to #5a7a6a
             var distantHills = Path()
-            distantHills.move(to: CGPoint(x: 0, y: size.height * 0.4))
-            distantHills.addQuadCurve(to: CGPoint(x: size.width * 0.25, y: size.height * 0.35), control: CGPoint(x: size.width * 0.125, y: size.height * 0.25))
-            distantHills.addQuadCurve(to: CGPoint(x: size.width * 0.5, y: size.height * 0.3), control: CGPoint(x: size.width * 0.375, y: size.height * 0.2))
-            distantHills.addQuadCurve(to: CGPoint(x: size.width * 0.75, y: size.height * 0.28), control: CGPoint(x: size.width * 0.625, y: size.height * 0.15))
-            distantHills.addQuadCurve(to: CGPoint(x: size.width, y: size.height * 0.33), control: CGPoint(x: size.width * 0.875, y: size.height * 0.22))
+            distantHills.move(to: CGPoint(x: 0, y: size.height * 0.40))
+            distantHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.25, y: size.height * 0.35),
+                control: CGPoint(x: size.width * 0.125, y: size.height * 0.25)
+            )
+            distantHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.50, y: size.height * 0.30),
+                control: CGPoint(x: size.width * 0.375, y: size.height * 0.20)
+            )
+            distantHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.75, y: size.height * 0.275),
+                control: CGPoint(x: size.width * 0.625, y: size.height * 0.15)
+            )
+            distantHills.addQuadCurve(
+                to: CGPoint(x: size.width, y: size.height * 0.325),
+                control: CGPoint(x: size.width * 0.875, y: size.height * 0.225)
+            )
             distantHills.addLine(to: CGPoint(x: size.width, y: size.height))
             distantHills.addLine(to: CGPoint(x: 0, y: size.height))
             distantHills.closeSubpath()
@@ -356,12 +453,25 @@ struct BalloonLandscapeView: View {
                 endPoint: CGPoint(x: 0, y: size.height)
             ))
 
-            // Mid hills
+            // Mid hills - #5a8a5a to #3a6a4a
             var midHills = Path()
             midHills.move(to: CGPoint(x: 0, y: size.height * 0.55))
-            midHills.addQuadCurve(to: CGPoint(x: size.width * 0.3, y: size.height * 0.5), control: CGPoint(x: size.width * 0.15, y: size.height * 0.4))
-            midHills.addQuadCurve(to: CGPoint(x: size.width * 0.6, y: size.height * 0.48), control: CGPoint(x: size.width * 0.45, y: size.height * 0.35))
-            midHills.addQuadCurve(to: CGPoint(x: size.width, y: size.height * 0.5), control: CGPoint(x: size.width * 0.8, y: size.height * 0.38))
+            midHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.30, y: size.height * 0.50),
+                control: CGPoint(x: size.width * 0.15, y: size.height * 0.40)
+            )
+            midHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.60, y: size.height * 0.475),
+                control: CGPoint(x: size.width * 0.45, y: size.height * 0.35)
+            )
+            midHills.addQuadCurve(
+                to: CGPoint(x: size.width * 0.90, y: size.height * 0.45),
+                control: CGPoint(x: size.width * 0.75, y: size.height * 0.375)
+            )
+            midHills.addQuadCurve(
+                to: CGPoint(x: size.width, y: size.height * 0.50),
+                control: CGPoint(x: size.width * 0.95, y: size.height * 0.425)
+            )
             midHills.addLine(to: CGPoint(x: size.width, y: size.height))
             midHills.addLine(to: CGPoint(x: 0, y: size.height))
             midHills.closeSubpath()
@@ -371,14 +481,29 @@ struct BalloonLandscapeView: View {
                 endPoint: CGPoint(x: 0, y: size.height)
             ))
 
-            // Forest layer
+            // Forest layer - #3a6a3a to #2a4a2a
             var forest = Path()
-            forest.move(to: CGPoint(x: 0, y: size.height * 0.7))
-            forest.addQuadCurve(to: CGPoint(x: size.width * 0.2, y: size.height * 0.68), control: CGPoint(x: size.width * 0.1, y: size.height * 0.62))
-            forest.addQuadCurve(to: CGPoint(x: size.width * 0.4, y: size.height * 0.65), control: CGPoint(x: size.width * 0.3, y: size.height * 0.6))
-            forest.addQuadCurve(to: CGPoint(x: size.width * 0.6, y: size.height * 0.64), control: CGPoint(x: size.width * 0.5, y: size.height * 0.58))
-            forest.addQuadCurve(to: CGPoint(x: size.width * 0.8, y: size.height * 0.66), control: CGPoint(x: size.width * 0.7, y: size.height * 0.59))
-            forest.addQuadCurve(to: CGPoint(x: size.width, y: size.height * 0.68), control: CGPoint(x: size.width * 0.9, y: size.height * 0.61))
+            forest.move(to: CGPoint(x: 0, y: size.height * 0.70))
+            forest.addQuadCurve(
+                to: CGPoint(x: size.width * 0.20, y: size.height * 0.675),
+                control: CGPoint(x: size.width * 0.10, y: size.height * 0.625)
+            )
+            forest.addQuadCurve(
+                to: CGPoint(x: size.width * 0.40, y: size.height * 0.65),
+                control: CGPoint(x: size.width * 0.30, y: size.height * 0.60)
+            )
+            forest.addQuadCurve(
+                to: CGPoint(x: size.width * 0.60, y: size.height * 0.64),
+                control: CGPoint(x: size.width * 0.50, y: size.height * 0.575)
+            )
+            forest.addQuadCurve(
+                to: CGPoint(x: size.width * 0.80, y: size.height * 0.66),
+                control: CGPoint(x: size.width * 0.70, y: size.height * 0.59)
+            )
+            forest.addQuadCurve(
+                to: CGPoint(x: size.width, y: size.height * 0.675),
+                control: CGPoint(x: size.width * 0.90, y: size.height * 0.61)
+            )
             forest.addLine(to: CGPoint(x: size.width, y: size.height))
             forest.addLine(to: CGPoint(x: 0, y: size.height))
             forest.closeSubpath()
@@ -388,35 +513,48 @@ struct BalloonLandscapeView: View {
                 endPoint: CGPoint(x: 0, y: size.height)
             ))
 
-            // Trees
-            let treePositions: [(x: CGFloat, h: CGFloat)] = [
-                (0.08, 0.15), (0.12, 0.18), (0.18, 0.12),
-                (0.30, 0.18), (0.35, 0.12),
-                (0.50, 0.20), (0.55, 0.14), (0.60, 0.12),
-                (0.75, 0.15), (0.80, 0.13),
-                (0.90, 0.17), (0.95, 0.12)
+            // Tree silhouettes - #2a5030
+            let treeColor = Color(hex: "2a5030")
+            let treeGroups: [(positions: [(x: CGFloat, base: CGFloat, h: CGFloat)], baseY: CGFloat)] = [
+                // Group 1
+                ([(0.075, 0.70, 0.10), (0.1125, 0.70, 0.125), (0.1625, 0.70, 0.075)], 0.70),
+                // Group 2
+                ([(0.30, 0.675, 0.125), (0.35, 0.69, 0.08)], 0.675),
+                // Group 3
+                ([(0.50, 0.65, 0.125), (0.5625, 0.665, 0.09), (0.6125, 0.675, 0.075)], 0.65),
+                // Group 4
+                ([(0.75, 0.66, 0.10), (0.80, 0.675, 0.085)], 0.66),
+                // Group 5
+                ([(0.90, 0.65, 0.11), (0.95, 0.665, 0.075)], 0.65)
             ]
 
-            for tree in treePositions {
-                var treePath = Path()
-                let treeX = size.width * tree.x
-                let treeBase = size.height * 0.70
-                let treeHeight = size.height * tree.h
-                let treeWidth = treeHeight * 0.5
+            for group in treeGroups {
+                for tree in group.positions {
+                    var treePath = Path()
+                    let treeX = size.width * tree.x
+                    let treeBase = size.height * tree.base
+                    let treeHeight = size.height * tree.h
+                    let treeWidth = treeHeight * 0.7
 
-                treePath.move(to: CGPoint(x: treeX, y: treeBase))
-                treePath.addLine(to: CGPoint(x: treeX - treeWidth / 2, y: treeBase))
-                treePath.addLine(to: CGPoint(x: treeX, y: treeBase - treeHeight))
-                treePath.addLine(to: CGPoint(x: treeX + treeWidth / 2, y: treeBase))
-                treePath.closeSubpath()
-                context.fill(treePath, with: .color(Color(hex: "2a5030")))
+                    treePath.move(to: CGPoint(x: treeX - treeWidth / 2, y: treeBase))
+                    treePath.addLine(to: CGPoint(x: treeX, y: treeBase - treeHeight))
+                    treePath.addLine(to: CGPoint(x: treeX + treeWidth / 2, y: treeBase))
+                    treePath.closeSubpath()
+                    context.fill(treePath, with: .color(treeColor))
+                }
             }
 
-            // Foreground
+            // Foreground - #2a5a2a to #1a3a1a
             var foreground = Path()
-            foreground.move(to: CGPoint(x: 0, y: size.height * 0.82))
-            foreground.addQuadCurve(to: CGPoint(x: size.width * 0.5, y: size.height * 0.81), control: CGPoint(x: size.width * 0.25, y: size.height * 0.78))
-            foreground.addQuadCurve(to: CGPoint(x: size.width, y: size.height * 0.84), control: CGPoint(x: size.width * 0.75, y: size.height * 0.79))
+            foreground.move(to: CGPoint(x: 0, y: size.height * 0.825))
+            foreground.addQuadCurve(
+                to: CGPoint(x: size.width * 0.50, y: size.height * 0.81),
+                control: CGPoint(x: size.width * 0.25, y: size.height * 0.775)
+            )
+            foreground.addQuadCurve(
+                to: CGPoint(x: size.width, y: size.height * 0.84),
+                control: CGPoint(x: size.width * 0.75, y: size.height * 0.79)
+            )
             foreground.addLine(to: CGPoint(x: size.width, y: size.height))
             foreground.addLine(to: CGPoint(x: 0, y: size.height))
             foreground.closeSubpath()
@@ -426,22 +564,23 @@ struct BalloonLandscapeView: View {
                 endPoint: CGPoint(x: 0, y: size.height)
             ))
 
-            // Bushes
-            let bushPositions: [(x: CGFloat, y: CGFloat, rx: CGFloat, ry: CGFloat)] = [
+            // Bushes - #1a4020
+            let bushColor = Color(hex: "1a4020")
+            let bushes: [(x: CGFloat, y: CGFloat, rx: CGFloat, ry: CGFloat)] = [
                 (0.15, 0.86, 15, 8),
-                (0.40, 0.84, 12, 6),
+                (0.375, 0.84, 12, 6),
                 (0.70, 0.85, 18, 7),
-                (0.88, 0.88, 14, 6)
+                (0.875, 0.875, 14, 6)
             ]
 
-            for bush in bushPositions {
+            for bush in bushes {
                 let bushPath = Path(ellipseIn: CGRect(
                     x: size.width * bush.x - bush.rx,
                     y: size.height * bush.y - bush.ry,
                     width: bush.rx * 2,
                     height: bush.ry * 2
                 ))
-                context.fill(bushPath, with: .color(Color(hex: "1a4020")))
+                context.fill(bushPath, with: .color(bushColor))
             }
         }
         .scaleEffect(landscapeScale)
@@ -449,9 +588,9 @@ struct BalloonLandscapeView: View {
     }
 }
 
-// MARK: - Main Balloon View
+// MARK: - Main Hot Air Balloon View
 
-struct BalloonMainView: View {
+struct HotAirBalloonMainView: View {
     let cycleProgress: CGFloat
     let riseHeight: CGFloat
     let timestamp: TimeInterval
@@ -462,41 +601,79 @@ struct BalloonMainView: View {
     }
 
     var body: some View {
+        // Calculate all positions matching HTML exactly
         let verticalWave = cos(cycleProgress * .pi * 2)
         let verticalPos = (1 - verticalWave) / 2 * riseHeight
         let horizontalDrift = sin(cycleProgress * .pi * 2) * 15
+
+        // Micro floating oscillation
         let floatY = sin(timestamp / 1500) * 4
         let floatX = cos(timestamp / 2000) * 3
+
+        // Basket sway
         let basketSway = sin(timestamp / 800) * 1.5
-        let flameIntensity = isInhaling ? easeInOutSine(cycleProgress * 2) : 0
+
+        // Flame intensity
+        let flameIntensity = isInhaling ? easeInOutSine(min(1, cycleProgress * 2)) : 0
+
+        // Balloon altitude for shadow
+        let balloonAltitude = verticalPos / riseHeight
 
         ZStack {
             // Balloon shadow
-            BalloonShadowView(cycleProgress: cycleProgress, riseHeight: riseHeight)
+            HotAirBalloonShadowView(balloonAltitude: balloonAltitude)
                 .offset(y: 250)
 
-            // Main balloon
-            BalloonEnvelopeView(flameIntensity: flameIntensity)
-                .frame(width: 120, height: 180)
-                .rotationEffect(.degrees(basketSway))
+            // Main balloon with flame glow
+            ZStack {
+                // Flame glow effect (behind balloon)
+                if flameIntensity > 0 {
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(hex: "ffc864").opacity(0.6),
+                                    Color(hex: "ff9632").opacity(0.3),
+                                    Color.clear
+                                ],
+                                center: .bottom,
+                                startRadius: 0,
+                                endRadius: 20
+                            )
+                        )
+                        .frame(width: 30, height: 40)
+                        .blur(radius: 8)
+                        .offset(y: 15)
+                        .opacity(flameIntensity * 0.7)
+                }
+
+                // Main balloon envelope
+                HotAirBalloonEnvelopeView(flameIntensity: flameIntensity, timestamp: timestamp)
+                    .frame(width: 120, height: 180)
+            }
+            .rotationEffect(.degrees(basketSway))
         }
         .offset(x: horizontalDrift + floatX, y: -verticalPos - floatY)
     }
 }
 
-struct BalloonShadowView: View {
-    let cycleProgress: CGFloat
-    let riseHeight: CGFloat
+// Shadow view
+struct HotAirBalloonShadowView: View {
+    let balloonAltitude: CGFloat
 
     var body: some View {
-        let verticalWave = cos(cycleProgress * .pi * 2)
-        let verticalPos = (1 - verticalWave) / 2 * riseHeight
-        let balloonAltitude = verticalPos / riseHeight
         let shadowVisibility = max(0, 1 - balloonAltitude * 1.2)
         let shadowScale = 0.5 + shadowVisibility * 0.8
 
         Ellipse()
-            .fill(Color(hex: "001e14").opacity(0.3))
+            .fill(
+                RadialGradient(
+                    colors: [Color(hex: "001e14").opacity(0.3), Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 30
+                )
+            )
             .frame(width: 60, height: 20)
             .blur(radius: 8)
             .scaleEffect(shadowScale)
@@ -504,8 +681,10 @@ struct BalloonShadowView: View {
     }
 }
 
-struct BalloonEnvelopeView: View {
+// Main balloon envelope with all details
+struct HotAirBalloonEnvelopeView: View {
     let flameIntensity: CGFloat
+    let timestamp: TimeInterval
 
     var body: some View {
         Canvas { context, size in
@@ -514,7 +693,15 @@ struct BalloonEnvelopeView: View {
             let envelopeRadiusY: CGFloat = 55
             let envelopeCenterY: CGFloat = 50
 
-            // Main envelope - white base
+            // Create clip path for envelope
+            let envelopeClipPath = Path(ellipseIn: CGRect(
+                x: centerX - 44,
+                y: envelopeCenterY - 54,
+                width: 88,
+                height: 108
+            ))
+
+            // Base envelope - white gradient
             let envelopePath = Path(ellipseIn: CGRect(
                 x: centerX - envelopeRadiusX,
                 y: envelopeCenterY - envelopeRadiusY,
@@ -527,14 +714,17 @@ struct BalloonEnvelopeView: View {
                 endPoint: CGPoint(x: size.width, y: envelopeCenterY)
             ))
 
-            // Red stripe
+            // Clip context for stripes
+            context.clip(to: envelopeClipPath)
+
+            // Red stripe - outermost
             var redStripe = Path()
             redStripe.move(to: CGPoint(x: 15, y: envelopeCenterY))
             redStripe.addQuadCurve(to: CGPoint(x: centerX, y: -5), control: CGPoint(x: 15, y: 0))
             redStripe.addQuadCurve(to: CGPoint(x: 105, y: envelopeCenterY), control: CGPoint(x: 105, y: 0))
             redStripe.addQuadCurve(to: CGPoint(x: centerX, y: 105), control: CGPoint(x: 105, y: 90))
             redStripe.addQuadCurve(to: CGPoint(x: 15, y: envelopeCenterY), control: CGPoint(x: 15, y: 90))
-            context.clip(to: envelopePath)
+            redStripe.closeSubpath()
             context.fill(redStripe, with: .linearGradient(
                 Gradient(colors: [Color(hex: "c44a40"), Color(hex: "e85a50"), Color(hex: "c44a40")]),
                 startPoint: CGPoint(x: 0, y: envelopeCenterY),
@@ -548,6 +738,7 @@ struct BalloonEnvelopeView: View {
             orangeStripe.addQuadCurve(to: CGPoint(x: 95, y: envelopeCenterY), control: CGPoint(x: 95, y: 10))
             orangeStripe.addQuadCurve(to: CGPoint(x: centerX, y: 98), control: CGPoint(x: 95, y: 85))
             orangeStripe.addQuadCurve(to: CGPoint(x: 25, y: envelopeCenterY), control: CGPoint(x: 25, y: 85))
+            orangeStripe.closeSubpath()
             context.fill(orangeStripe, with: .linearGradient(
                 Gradient(colors: [Color(hex: "d4854a"), Color(hex: "f0a060"), Color(hex: "d4854a")]),
                 startPoint: CGPoint(x: 0, y: envelopeCenterY),
@@ -561,34 +752,39 @@ struct BalloonEnvelopeView: View {
             yellowStripe.addQuadCurve(to: CGPoint(x: 85, y: envelopeCenterY), control: CGPoint(x: 85, y: 18))
             yellowStripe.addQuadCurve(to: CGPoint(x: centerX, y: 90), control: CGPoint(x: 85, y: 78))
             yellowStripe.addQuadCurve(to: CGPoint(x: 35, y: envelopeCenterY), control: CGPoint(x: 35, y: 78))
+            yellowStripe.closeSubpath()
             context.fill(yellowStripe, with: .linearGradient(
                 Gradient(colors: [Color(hex: "c4a44a"), Color(hex: "e8c860"), Color(hex: "c4a44a")]),
                 startPoint: CGPoint(x: 0, y: envelopeCenterY),
                 endPoint: CGPoint(x: size.width, y: envelopeCenterY)
             ))
 
-            // White center
+            // White center stripe
             var whiteCenter = Path()
             whiteCenter.move(to: CGPoint(x: 45, y: envelopeCenterY))
             whiteCenter.addQuadCurve(to: CGPoint(x: centerX, y: 18), control: CGPoint(x: 45, y: 25))
             whiteCenter.addQuadCurve(to: CGPoint(x: 75, y: envelopeCenterY), control: CGPoint(x: 75, y: 25))
             whiteCenter.addQuadCurve(to: CGPoint(x: centerX, y: 82), control: CGPoint(x: 75, y: 72))
             whiteCenter.addQuadCurve(to: CGPoint(x: 45, y: envelopeCenterY), control: CGPoint(x: 45, y: 72))
+            whiteCenter.closeSubpath()
             context.fill(whiteCenter, with: .linearGradient(
                 Gradient(colors: [Color(hex: "d8d8d0"), Color(hex: "f5f5f0"), Color(hex: "d8d8d0")]),
                 startPoint: CGPoint(x: 0, y: envelopeCenterY),
                 endPoint: CGPoint(x: size.width, y: envelopeCenterY)
             ))
 
-            // Bottom opening
+            // Reset clip for remaining elements
+            context.clip(to: Path(CGRect(origin: .zero, size: size)))
+
+            // Bottom opening - #4a3020
             let openingPath = Path(ellipseIn: CGRect(x: centerX - 12, y: 95, width: 24, height: 10))
             context.fill(openingPath, with: .color(Color(hex: "4a3020")))
 
-            // Highlight
+            // Highlight on envelope
             let highlightPath = Path(ellipseIn: CGRect(x: 33, y: 17, width: 24, height: 36))
             context.fill(highlightPath, with: .color(Color.white.opacity(0.2)))
 
-            // Ropes
+            // Ropes - #5a4030
             let ropeColor = Color(hex: "5a4030")
             var rope1 = Path()
             rope1.move(to: CGPoint(x: 48, y: 100))
@@ -610,11 +806,11 @@ struct BalloonEnvelopeView: View {
             rope4.addLine(to: CGPoint(x: 68, y: 140))
             context.stroke(rope4, with: .color(ropeColor), lineWidth: 1)
 
-            // Basket rim
+            // Basket rim - #8a6040
             let rimRect = CGRect(x: 40, y: 138, width: 40, height: 5)
             context.fill(Path(roundedRect: rimRect, cornerRadius: 2), with: .color(Color(hex: "8a6040")))
 
-            // Basket
+            // Basket - gradient from #a08060 to #705030
             let basketRect = CGRect(x: 42, y: 140, width: 36, height: 25)
             context.fill(Path(roundedRect: basketRect, cornerRadius: 3), with: .linearGradient(
                 Gradient(colors: [Color(hex: "a08060"), Color(hex: "705030")]),
@@ -622,36 +818,89 @@ struct BalloonEnvelopeView: View {
                 endPoint: CGPoint(x: 0, y: 165)
             ))
 
-            // Basket weave
+            // Basket weave pattern - #5a4020 opacity 0.5
             let weaveColor = Color(hex: "5a4020").opacity(0.5)
+
+            // Horizontal lines
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: 42, y: 148))
                 p.addLine(to: CGPoint(x: 78, y: 148))
             }, with: .color(weaveColor), lineWidth: 0.5)
+
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: 42, y: 156))
                 p.addLine(to: CGPoint(x: 78, y: 156))
             }, with: .color(weaveColor), lineWidth: 0.5)
 
-            for x in [50, 60, 70] {
+            // Vertical lines
+            for x in [50, 60, 70] as [CGFloat] {
                 context.stroke(Path { p in
-                    p.move(to: CGPoint(x: CGFloat(x), y: 140))
-                    p.addLine(to: CGPoint(x: CGFloat(x), y: 165))
+                    p.move(to: CGPoint(x: x, y: 140))
+                    p.addLine(to: CGPoint(x: x, y: 165))
                 }, with: .color(weaveColor), lineWidth: 0.5)
             }
 
-            // Flame (when inhaling)
+            // Flame (when active during inhale)
             if flameIntensity > 0 {
-                let flameOuter = Path(ellipseIn: CGRect(x: centerX - 6, y: 106, width: 12, height: 24))
-                context.fill(flameOuter, with: .color(Color(hex: "ff9030").opacity(Double(flameIntensity) * 0.9)))
+                // Flame flicker effect
+                let flicker = 0.8 + (sin(timestamp / 50) * 0.2)
 
-                let flameMid = Path(ellipseIn: CGRect(x: centerX - 4, y: 107, width: 8, height: 16))
-                context.fill(flameMid, with: .color(Color(hex: "ffb050").opacity(Double(flameIntensity) * 0.9)))
+                // Outer flame - #ff9030
+                let flameOuterRect = CGRect(
+                    x: centerX - 6,
+                    y: 118 - 12 * flicker,
+                    width: 12,
+                    height: 24 * flicker
+                )
+                context.fill(Path(ellipseIn: flameOuterRect), with: .color(Color(hex: "ff9030").opacity(Double(flameIntensity) * 0.9)))
 
-                let flameInner = Path(ellipseIn: CGRect(x: centerX - 2, y: 107, width: 4, height: 10))
-                context.fill(flameInner, with: .color(Color(hex: "ffe080").opacity(Double(flameIntensity) * 0.9)))
+                // Middle flame - #ffb050
+                let flameMidRect = CGRect(
+                    x: centerX - 4,
+                    y: 115 - 8 * flicker,
+                    width: 8,
+                    height: 16 * flicker
+                )
+                context.fill(Path(ellipseIn: flameMidRect), with: .color(Color(hex: "ffb050").opacity(Double(flameIntensity) * 0.9)))
+
+                // Inner flame - #ffe080
+                let flameInnerRect = CGRect(
+                    x: centerX - 2,
+                    y: 112 - 5 * flicker,
+                    width: 4,
+                    height: 10 * flicker
+                )
+                context.fill(Path(ellipseIn: flameInnerRect), with: .color(Color(hex: "ffe080").opacity(Double(flameIntensity) * 0.9)))
             }
         }
+    }
+}
+
+// MARK: - Color Extension
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 

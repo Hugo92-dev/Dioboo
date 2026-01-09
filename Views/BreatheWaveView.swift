@@ -35,21 +35,23 @@ struct BreatheWaveView: View {
                     cycleDuration: cycleDuration
                 )
 
-                // Crabs layer
+                // Crabs layer (z-index 15 in HTML - above sand, can be covered by wave)
                 CrabsLayer(
                     width: width,
                     height: height,
                     crab1Position: crab1Position,
                     crab2Position: crab2Position,
                     crab1Direction: crab1Direction,
+                    crab2Direction: crab2Direction,
                     elapsedTime: elapsedTime
                 )
 
-                // Starfish
+                // Starfish - positioned at bottom: 70%, left: 65% (in crabs-layer which is bottom 25%)
+                // So starfish is at height * (1 - 0.25 * 0.70) = height * 0.825 from top
                 StarfishView()
                     .frame(width: 38, height: 38)
                     .rotationEffect(.degrees(15))
-                    .position(x: width * 0.65, y: height * 0.23)
+                    .position(x: width * 0.65, y: height * 0.825)
 
                 // UI Layer
                 VStack {
@@ -59,6 +61,11 @@ struct BreatheWaveView: View {
                                 Circle()
                                     .fill(.white.opacity(0.2))
                                     .frame(width: 42, height: 42)
+                                    .background(
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .opacity(0.5)
+                                    )
                                     .overlay(
                                         Circle()
                                             .stroke(.white.opacity(0.25), lineWidth: 1)
@@ -83,8 +90,8 @@ struct BreatheWaveView: View {
                         .font(.custom("Nunito", size: 22).weight(.regular))
                         .tracking(6)
                         .foregroundColor(.white)
-                        .shadow(color: Color(red: 0.4, green: 0.3, blue: 0.2).opacity(0.5), radius: 15, y: 2)
-                        .padding(.bottom, 8)
+                        .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.5), radius: 15, y: 2)
+                        .padding(.bottom, 32)
 
                     // Timer
                     let remaining = max(0, totalDuration - elapsedTime)
@@ -94,8 +101,8 @@ struct BreatheWaveView: View {
                     Text(String(format: "%d:%02d", minutes, seconds))
                         .font(.custom("Nunito", size: 15).weight(.light))
                         .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: Color(red: 0.4, green: 0.3, blue: 0.2).opacity(0.3), radius: 5, y: 1)
-                        .padding(.bottom, 20)
+                        .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.3), radius: 5, y: 1)
+                        .padding(.bottom, 38)
 
                     // Progress bar
                     ZStack(alignment: .leading) {
@@ -133,7 +140,7 @@ struct BreatheWaveView: View {
 
             elapsedTime = Date().timeIntervalSince(startTime)
 
-            // Crab 1 animation (18s cycle)
+            // Crab 1 animation (18s cycle) - walks left to right then back
             let crab1Cycle = elapsedTime.truncatingRemainder(dividingBy: 18)
             if crab1Cycle < 9 {
                 crab1Position = -0.1 + (crab1Cycle / 9) * 1.2
@@ -143,7 +150,7 @@ struct BreatheWaveView: View {
                 crab1Direction = -1
             }
 
-            // Crab 2 animation (22s cycle)
+            // Crab 2 animation (22s cycle) - walks right to left then back
             let crab2Cycle = elapsedTime.truncatingRemainder(dividingBy: 22)
             if crab2Cycle < 11 {
                 crab2Position = 1.1 - (crab2Cycle / 11) * 1.2
@@ -165,18 +172,68 @@ struct BreatheWaveView: View {
 
 struct SandBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.83, green: 0.72, blue: 0.59),
-                Color(red: 0.86, green: 0.75, blue: 0.61),
-                Color(red: 0.88, green: 0.77, blue: 0.63),
-                Color(red: 0.89, green: 0.78, blue: 0.64),
-                Color(red: 0.91, green: 0.80, blue: 0.66),
-                Color(red: 0.93, green: 0.82, blue: 0.67)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        ZStack {
+            // Main sand gradient - exact HTML colors
+            LinearGradient(
+                colors: [
+                    Color(hex: "d4b896"),  // 0%
+                    Color(hex: "dcbf9c"),  // 20%
+                    Color(hex: "e0c4a0"),  // 40%
+                    Color(hex: "e4c8a4"),  // 60%
+                    Color(hex: "e8cca8"),  // 80%
+                    Color(hex: "ecd0ac")   // 100%
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            // Sand texture overlay
+            SandTextureView()
+        }
+    }
+}
+
+// MARK: - Sand Texture View
+
+struct SandTextureView: View {
+    var body: some View {
+        Canvas { context, size in
+            // Sand texture pattern matching HTML
+            let sandGrainColor = Color(red: 0.78, green: 0.67, blue: 0.51) // rgba(200,170,130)
+
+            // Pattern 1: 30x30 at 20%, 30%
+            for x in stride(from: 0, to: size.width, by: 30) {
+                for y in stride(from: 0, to: size.height, by: 30) {
+                    let dot = Path(ellipseIn: CGRect(x: x + 6, y: y + 9, width: 2, height: 2))
+                    context.fill(dot, with: .color(sandGrainColor.opacity(0.3)))
+                }
+            }
+
+            // Pattern 2: 45x45 at 60%, 50%
+            for x in stride(from: 0, to: size.width, by: 45) {
+                for y in stride(from: 0, to: size.height, by: 45) {
+                    let dot = Path(ellipseIn: CGRect(x: x + 27, y: y + 22.5, width: 2, height: 2))
+                    context.fill(dot, with: .color(sandGrainColor.opacity(0.25)))
+                }
+            }
+
+            // Pattern 3: 55x55 at 80%, 20%
+            for x in stride(from: 0, to: size.width, by: 55) {
+                for y in stride(from: 0, to: size.height, by: 55) {
+                    let dot = Path(ellipseIn: CGRect(x: x + 44, y: y + 11, width: 2, height: 2))
+                    context.fill(dot, with: .color(sandGrainColor.opacity(0.2)))
+                }
+            }
+
+            // Pattern 4: 35x35 at 40%, 70%
+            for x in stride(from: 0, to: size.width, by: 35) {
+                for y in stride(from: 0, to: size.height, by: 35) {
+                    let dot = Path(ellipseIn: CGRect(x: x + 14, y: y + 24.5, width: 2, height: 2))
+                    context.fill(dot, with: .color(sandGrainColor.opacity(0.3)))
+                }
+            }
+        }
         .ignoresSafeArea()
     }
 }
@@ -189,11 +246,14 @@ struct WaveLayer: View {
     let elapsedTime: Double
     let cycleDuration: Double
 
-    private let waveYRetreated: CGFloat = 0.20
-    private let waveYExtended: CGFloat = 0.75
+    // Wave Y positions as percentages (matching HTML: 180/900 = 0.20, 680/900 = 0.756)
+    private let waveYRetreated: CGFloat = 0.20   // Y position when fully retreated (exhale)
+    private let waveYExtended: CGFloat = 0.756   // Y position when fully extended (inhale)
 
     var body: some View {
         let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+        // cos(0) = 1 -> extended position (inhale - wave covers sand)
+        // cos(pi) = -1 -> retreated position (exhale - wave uncovers sand)
         let wavePhase = cos(cycleProgress * .pi * 2)
         let waveMid = (waveYRetreated + waveYExtended) / 2
         let waveRange = (waveYExtended - waveYRetreated) / 2
@@ -202,13 +262,21 @@ struct WaveLayer: View {
         Canvas { context, size in
             let waveYPos = size.height * waveY
 
-            // Generate wave curves
-            let curve1 = sin(elapsedTime / 3) * 15
-            let curve2 = cos(elapsedTime / 2.5) * 12
-            let curve3 = sin(elapsedTime / 2.8) * 18
-            let curve4 = cos(elapsedTime / 3.2) * 10
+            // Generate wave curves with time-based animation
+            let t = elapsedTime * 1000 // Convert to milliseconds like HTML
+            let curve1 = sin(t / 3000) * 15
+            let curve2 = cos(t / 2500) * 12
+            let curve3 = sin(t / 2800) * 18
+            let curve4 = cos(t / 3200) * 10
 
-            // Water body path
+            // Foam dimensions
+            let foamHeight: CGFloat = 60
+            let foamTop = waveYPos - 10
+            let foamBottom = waveYPos + foamHeight
+            let wetSandTop = foamBottom + 5
+            let wetSandBottom = foamBottom + 50
+
+            // Water body path - covers from top of screen to waveY with wavy bottom edge
             var waterPath = Path()
             waterPath.move(to: CGPoint(x: -20, y: 0))
             waterPath.addLine(to: CGPoint(x: size.width + 20, y: 0))
@@ -228,13 +296,13 @@ struct WaveLayer: View {
             waterPath.addLine(to: CGPoint(x: -20, y: waveYPos + 30))
             waterPath.closeSubpath()
 
-            // Water gradient
+            // Water gradient - exact HTML colors
             let waterGradient = Gradient(colors: [
-                Color(red: 0.16, green: 0.50, blue: 0.60),
-                Color(red: 0.23, green: 0.60, blue: 0.69),
-                Color(red: 0.29, green: 0.69, blue: 0.78),
-                Color(red: 0.38, green: 0.77, blue: 0.85),
-                Color(red: 0.50, green: 0.85, blue: 0.91)
+                Color(hex: "2a8098"),  // 0%
+                Color(hex: "3a9ab0"),  // 20%
+                Color(hex: "4ab0c8"),  // 50%
+                Color(hex: "60c4d8"),  // 80%
+                Color(hex: "80d8e8")   // 100%
             ])
 
             context.fill(
@@ -246,10 +314,31 @@ struct WaveLayer: View {
                 )
             )
 
-            // Foam area
-            let foamTop = waveYPos - 10
-            let foamBottom = waveYPos + 60
+            // Water texture overlay - subtle circles
+            let waterTexturePositions: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (0.25, 0.25, 12, 0.06),
+                (0.75, 0.56, 10, 0.05),
+                (0.44, 0.81, 8, 0.04)
+            ]
+            for (xRatio, yRatio, radius, opacity) in waterTexturePositions {
+                for xOff in stride(from: 0, to: size.width, by: 80) {
+                    for yOff in stride(from: 0, to: waveYPos, by: 80) {
+                        let circleX = xOff + 80 * xRatio
+                        let circleY = yOff + 80 * yRatio
+                        if circleY < waveYPos {
+                            let circlePath = Path(ellipseIn: CGRect(
+                                x: circleX - radius,
+                                y: circleY - radius,
+                                width: radius * 2,
+                                height: radius * 2
+                            ))
+                            context.fill(circlePath, with: .color(.white.opacity(opacity)))
+                        }
+                    }
+                }
+            }
 
+            // Foam area path
             var foamPath = Path()
             foamPath.move(to: CGPoint(x: -20, y: foamTop + 30 + curve1))
             foamPath.addQuadCurve(
@@ -279,21 +368,51 @@ struct WaveLayer: View {
             )
             foamPath.closeSubpath()
 
-            // Foam gradient
+            // Foam gradient - exact HTML values
             let foamIntensity = 0.6 + (1 + wavePhase) * 0.15
             context.fill(
                 foamPath,
                 with: .linearGradient(
                     Gradient(colors: [
-                        Color.white.opacity(0.2 * foamIntensity),
-                        Color.white.opacity(0.6 * foamIntensity),
-                        Color.white.opacity(0.85 * foamIntensity),
-                        Color.white.opacity(0.95 * foamIntensity)
+                        Color.white.opacity(0.2),
+                        Color.white.opacity(0.6),
+                        Color.white.opacity(0.85),
+                        Color.white.opacity(0.95)
                     ]),
                     startPoint: CGPoint(x: size.width / 2, y: foamTop),
                     endPoint: CGPoint(x: size.width / 2, y: foamBottom)
                 )
             )
+            context.opacity = foamIntensity
+
+            // Foam bubbles pattern overlay
+            let foamBubblePositions: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (0.24, 0.24, 4, 0.75),
+                (0.60, 0.20, 3, 0.65),
+                (0.44, 0.50, 3.5, 0.7),
+                (0.80, 0.56, 2.5, 0.55),
+                (0.20, 0.76, 3, 0.6),
+                (0.56, 0.84, 4, 0.65),
+                (0.90, 0.80, 2, 0.5)
+            ]
+            context.opacity = 1.0
+            for xOff in stride(from: 0, to: size.width, by: 50) {
+                for yOff in stride(from: foamTop, to: foamBottom, by: 50) {
+                    for (xRatio, yRatio, radius, opacity) in foamBubblePositions {
+                        let bubbleX = xOff + 50 * xRatio
+                        let bubbleY = yOff + 50 * yRatio
+                        if bubbleY >= foamTop && bubbleY <= foamBottom + 20 {
+                            let bubblePath = Path(ellipseIn: CGRect(
+                                x: bubbleX - radius,
+                                y: bubbleY - radius,
+                                width: radius * 2,
+                                height: radius * 2
+                            ))
+                            context.fill(bubblePath, with: .color(.white.opacity(opacity * 0.85 * foamIntensity)))
+                        }
+                    }
+                }
+            }
 
             // Foam edge line
             var edgePath = Path()
@@ -314,13 +433,10 @@ struct WaveLayer: View {
             context.stroke(
                 edgePath,
                 with: .color(.white.opacity(0.9)),
-                lineWidth: 5
+                style: StrokeStyle(lineWidth: 5, lineCap: .round)
             )
 
             // Wet sand trace
-            let wetSandTop = foamBottom + 5
-            let wetSandBottom = foamBottom + 50
-
             var wetSandPath = Path()
             wetSandPath.move(to: CGPoint(x: -20, y: wetSandTop + 35 + curve1))
             wetSandPath.addQuadCurve(
@@ -350,6 +466,7 @@ struct WaveLayer: View {
             )
             wetSandPath.closeSubpath()
 
+            // Wet sand gradient - rgba(170,150,120,0.7) to transparent
             context.fill(
                 wetSandPath,
                 with: .linearGradient(
@@ -361,31 +478,6 @@ struct WaveLayer: View {
                     endPoint: CGPoint(x: size.width / 2, y: wetSandBottom)
                 )
             )
-
-            // Foam bubbles
-            let bubblePositions: [(CGFloat, CGFloat, CGFloat)] = [
-                (0.1, 0.3, 4), (0.25, 0.15, 3), (0.18, 0.5, 3.5),
-                (0.35, 0.25, 2.5), (0.08, 0.7, 3), (0.22, 0.8, 4),
-                (0.4, 0.6, 2), (0.55, 0.2, 3.5), (0.65, 0.45, 3),
-                (0.75, 0.3, 4), (0.85, 0.55, 2.5), (0.92, 0.4, 3)
-            ]
-
-            for (xRatio, yRatio, radius) in bubblePositions {
-                let bubbleX = size.width * xRatio
-                let bubbleY = foamTop + (foamBottom - foamTop) * yRatio
-
-                let circlePath = Path(ellipseIn: CGRect(
-                    x: bubbleX - radius,
-                    y: bubbleY - radius,
-                    width: radius * 2,
-                    height: radius * 2
-                ))
-
-                context.fill(
-                    circlePath,
-                    with: .color(.white.opacity(0.6 * foamIntensity))
-                )
-            }
         }
     }
 }
@@ -398,29 +490,37 @@ struct CrabsLayer: View {
     let crab1Position: CGFloat
     let crab2Position: CGFloat
     let crab1Direction: CGFloat
+    let crab2Direction: CGFloat
     let elapsedTime: Double
 
     var body: some View {
+        // Crabs layer is bottom 25% of screen (like HTML crabs-layer)
+        let crabsLayerTop = height * 0.75
+
         ZStack {
-            // Crab 1 - larger
+            // Crab 1 - larger, at bottom: 45% of crabs-layer
+            // 45% from bottom of crabs-layer = crabsLayerTop + height * 0.25 * (1 - 0.45)
             CrabView(
-                color1: Color(red: 0.77, green: 0.25, blue: 0.19),
-                color2: Color(red: 0.83, green: 0.31, blue: 0.25),
+                bodyColor: Color(hex: "c44030"),
+                highlightColor: Color(hex: "d45040"),
+                legColor: Color(hex: "b03828"),
                 elapsedTime: elapsedTime
             )
             .frame(width: 35, height: 25)
             .scaleEffect(x: crab1Direction, y: 1)
-            .position(x: width * crab1Position, y: height * 0.82)
+            .position(x: width * crab1Position, y: crabsLayerTop + height * 0.25 * 0.55)
 
-            // Crab 2 - smaller
+            // Crab 2 - smaller, at bottom: 12% of crabs-layer
             CrabView(
-                color1: Color(red: 0.72, green: 0.21, blue: 0.15),
-                color2: Color(red: 0.78, green: 0.27, blue: 0.21),
-                elapsedTime: elapsedTime
+                bodyColor: Color(hex: "b83525"),
+                highlightColor: Color(hex: "c84535"),
+                legColor: Color(hex: "a02818"),
+                elapsedTime: elapsedTime,
+                legAnimationDelay: 0.1
             )
             .frame(width: 28, height: 20)
-            .scaleEffect(x: crab2Position > 0.5 ? -1 : 1, y: 1)
-            .position(x: width * crab2Position, y: height * 0.94)
+            .scaleEffect(x: crab2Direction, y: 1)
+            .position(x: width * crab2Position, y: crabsLayerTop + height * 0.25 * 0.88)
         }
     }
 }
@@ -428,71 +528,144 @@ struct CrabsLayer: View {
 // MARK: - Crab View
 
 struct CrabView: View {
-    let color1: Color
-    let color2: Color
+    let bodyColor: Color
+    let highlightColor: Color
+    let legColor: Color
     let elapsedTime: Double
+    var legAnimationDelay: Double = 0
 
     var body: some View {
-        let legRotation = sin(elapsedTime * 20) * 5
+        // Legs animate with steps - matching HTML animation
+        let legRotation = ((Int(elapsedTime * 6.67 + legAnimationDelay * 6.67) % 2) == 0) ? -5.0 : 5.0
 
         Canvas { context, size in
-            let cx = size.width / 2
-            let cy = size.height * 0.57
+            let scaleX = size.width / 40
+            let scaleY = size.height / 28
 
-            // Body
-            let bodyPath = Path(ellipseIn: CGRect(x: cx - 12, y: cy - 8, width: 24, height: 16))
-            context.fill(bodyPath, with: .color(color1))
+            // Body - main ellipse
+            let bodyPath = Path(ellipseIn: CGRect(
+                x: 8 * scaleX,
+                y: 8 * scaleY,
+                width: 24 * scaleX,
+                height: 16 * scaleY
+            ))
+            context.fill(bodyPath, with: .color(bodyColor))
 
-            let bodyTop = Path(ellipseIn: CGRect(x: cx - 10, y: cy - 10, width: 20, height: 12))
-            context.fill(bodyTop, with: .color(color2))
+            // Body - top highlight ellipse
+            let bodyTopPath = Path(ellipseIn: CGRect(
+                x: 10 * scaleX,
+                y: 8 * scaleY,
+                width: 20 * scaleX,
+                height: 12 * scaleY
+            ))
+            context.fill(bodyTopPath, with: .color(highlightColor))
 
-            // Eyes
-            let leftEyeStalk = Path(ellipseIn: CGRect(x: cx - 8, y: cy - 14, width: 4, height: 6))
-            let rightEyeStalk = Path(ellipseIn: CGRect(x: cx + 4, y: cy - 14, width: 4, height: 6))
-            context.fill(leftEyeStalk, with: .color(color1))
-            context.fill(rightEyeStalk, with: .color(color1))
+            // Left eye stalk
+            let leftEyeStalk = Path(ellipseIn: CGRect(
+                x: 12 * scaleX,
+                y: 7 * scaleY,
+                width: 4 * scaleX,
+                height: 6 * scaleY
+            ))
+            context.fill(leftEyeStalk, with: .color(bodyColor))
 
-            let leftEye = Path(ellipseIn: CGRect(x: cx - 7.5, y: cy - 16, width: 3, height: 3))
-            let rightEye = Path(ellipseIn: CGRect(x: cx + 4.5, y: cy - 16, width: 3, height: 3))
-            context.fill(leftEye, with: .color(Color(red: 0.1, green: 0.1, blue: 0.1)))
-            context.fill(rightEye, with: .color(Color(red: 0.1, green: 0.1, blue: 0.1)))
+            // Right eye stalk
+            let rightEyeStalk = Path(ellipseIn: CGRect(
+                x: 24 * scaleX,
+                y: 7 * scaleY,
+                width: 4 * scaleX,
+                height: 6 * scaleY
+            ))
+            context.fill(rightEyeStalk, with: .color(bodyColor))
 
-            // Claws
-            let leftClaw = Path(ellipseIn: CGRect(x: cx - 19, y: cy - 6, width: 8, height: 6))
-            let rightClaw = Path(ellipseIn: CGRect(x: cx + 11, y: cy - 6, width: 8, height: 6))
-            context.fill(leftClaw, with: .color(color2))
-            context.fill(rightClaw, with: .color(color2))
+            // Left eye
+            let leftEye = Path(ellipseIn: CGRect(
+                x: 12.5 * scaleX,
+                y: 6.5 * scaleY,
+                width: 3 * scaleX,
+                height: 3 * scaleY
+            ))
+            context.fill(leftEye, with: .color(Color(hex: "1a1a1a")))
 
-            let leftClawTip = Path(ellipseIn: CGRect(x: cx - 21, y: cy - 10, width: 4, height: 4))
-            let rightClawTip = Path(ellipseIn: CGRect(x: cx + 17, y: cy - 10, width: 4, height: 4))
-            context.fill(leftClawTip, with: .color(color1))
-            context.fill(rightClawTip, with: .color(color1))
+            // Right eye
+            let rightEye = Path(ellipseIn: CGRect(
+                x: 24.5 * scaleX,
+                y: 6.5 * scaleY,
+                width: 3 * scaleX,
+                height: 3 * scaleY
+            ))
+            context.fill(rightEye, with: .color(Color(hex: "1a1a1a")))
 
-            // Legs with animation
-            let legColor = color1.opacity(0.85)
+            // Left claw
+            let leftClaw = Path(ellipseIn: CGRect(
+                x: 1 * scaleX,
+                y: 11 * scaleY,
+                width: 8 * scaleX,
+                height: 6 * scaleY
+            ))
+            context.fill(leftClaw, with: .color(highlightColor))
 
-            // Left legs
-            for i in 0..<3 {
+            // Right claw
+            let rightClaw = Path(ellipseIn: CGRect(
+                x: 31 * scaleX,
+                y: 11 * scaleY,
+                width: 8 * scaleX,
+                height: 6 * scaleY
+            ))
+            context.fill(rightClaw, with: .color(highlightColor))
+
+            // Left claw tip
+            let leftClawTip = Path(ellipseIn: CGRect(
+                x: 1 * scaleX,
+                y: 10 * scaleY,
+                width: 4 * scaleX,
+                height: 4 * scaleY
+            ))
+            context.fill(leftClawTip, with: .color(bodyColor))
+
+            // Right claw tip
+            let rightClawTip = Path(ellipseIn: CGRect(
+                x: 35 * scaleX,
+                y: 10 * scaleY,
+                width: 4 * scaleX,
+                height: 4 * scaleY
+            ))
+            context.fill(rightClawTip, with: .color(bodyColor))
+
+            // Left legs with rotation animation
+            let leftLegData: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (10, 18, 4, 24),
+                (12, 20, 6, 26),
+                (14, 21, 10, 27)
+            ]
+            for (x1, y1, x2, y2) in leftLegData {
                 var legPath = Path()
-                let startX = cx - 10 + CGFloat(i) * 4
-                let startY = cy + 4 + CGFloat(i) * 2
-                let endX = startX - 8
-                let endY = startY + 8 + legRotation
-                legPath.move(to: CGPoint(x: startX, y: startY))
-                legPath.addLine(to: CGPoint(x: endX, y: endY))
-                context.stroke(legPath, with: .color(legColor), lineWidth: 2)
+                legPath.move(to: CGPoint(x: x1 * scaleX, y: y1 * scaleY))
+                let rotatedY2 = y2 + CGFloat(legRotation) * 0.3
+                legPath.addLine(to: CGPoint(x: x2 * scaleX, y: rotatedY2 * scaleY))
+                context.stroke(
+                    legPath,
+                    with: .color(legColor),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
             }
 
-            // Right legs
-            for i in 0..<3 {
+            // Right legs with rotation animation (opposite phase)
+            let rightLegData: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (30, 18, 36, 24),
+                (28, 20, 34, 26),
+                (26, 21, 30, 27)
+            ]
+            for (x1, y1, x2, y2) in rightLegData {
                 var legPath = Path()
-                let startX = cx + 10 - CGFloat(i) * 4
-                let startY = cy + 4 + CGFloat(i) * 2
-                let endX = startX + 8
-                let endY = startY + 8 - legRotation
-                legPath.move(to: CGPoint(x: startX, y: startY))
-                legPath.addLine(to: CGPoint(x: endX, y: endY))
-                context.stroke(legPath, with: .color(legColor), lineWidth: 2)
+                legPath.move(to: CGPoint(x: x1 * scaleX, y: y1 * scaleY))
+                let rotatedY2 = y2 - CGFloat(legRotation) * 0.3
+                legPath.addLine(to: CGPoint(x: x2 * scaleX, y: rotatedY2 * scaleY))
+                context.stroke(
+                    legPath,
+                    with: .color(legColor),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
             }
         }
     }
@@ -503,103 +676,270 @@ struct CrabView: View {
 struct StarfishView: View {
     var body: some View {
         Canvas { context, size in
-            let cx = size.width / 2
-            let cy = size.height / 2
             let scale = size.width / 60
 
-            // Main starfish body path
+            // Main starfish body path - exact HTML SVG path
             var starPath = Path()
-            starPath.move(to: CGPoint(x: cx, y: cy - 27 * scale))
 
-            // Top arm
-            starPath.addQuadCurve(
-                to: CGPoint(x: cx + 4 * scale, y: cy - 8 * scale),
-                control: CGPoint(x: cx + 3 * scale, y: cy - 12 * scale)
-            )
+            // Starting point
+            starPath.move(to: CGPoint(x: 30 * scale, y: 3 * scale))
 
-            // Top right arm
+            // Top arm going down
             starPath.addQuadCurve(
-                to: CGPoint(x: cx + 27 * scale, y: cy - 2 * scale),
-                control: CGPoint(x: cx + 22 * scale, y: cy - 7 * scale)
+                to: CGPoint(x: 34 * scale, y: 12 * scale),
+                control: CGPoint(x: 33 * scale, y: 8 * scale)
             )
             starPath.addQuadCurve(
-                to: CGPoint(x: cx + 6 * scale, y: cy + 1 * scale),
-                control: CGPoint(x: cx + 14 * scale, y: cy + 1 * scale)
+                to: CGPoint(x: 33 * scale, y: 20 * scale),
+                control: CGPoint(x: 35 * scale, y: 16 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 30 * scale, y: 26 * scale),
+                control: CGPoint(x: 31 * scale, y: 24 * scale)
+            )
+
+            // Right arm
+            starPath.addQuadCurve(
+                to: CGPoint(x: 36 * scale, y: 26 * scale),
+                control: CGPoint(x: 32 * scale, y: 25 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 44 * scale, y: 25 * scale),
+                control: CGPoint(x: 40 * scale, y: 27 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 52 * scale, y: 24 * scale),
+                control: CGPoint(x: 48 * scale, y: 23 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 57 * scale, y: 28 * scale),
+                control: CGPoint(x: 55 * scale, y: 25 * scale)
+            )
+
+            // Right arm coming back
+            starPath.addQuadCurve(
+                to: CGPoint(x: 52 * scale, y: 32 * scale),
+                control: CGPoint(x: 55 * scale, y: 31 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 44 * scale, y: 32 * scale),
+                control: CGPoint(x: 48 * scale, y: 33 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 36 * scale, y: 31 * scale),
+                control: CGPoint(x: 40 * scale, y: 31 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 30 * scale, y: 32 * scale),
+                control: CGPoint(x: 32 * scale, y: 31 * scale)
             )
 
             // Bottom right arm
             starPath.addQuadCurve(
-                to: CGPoint(x: cx + 6 * scale, y: cy + 24 * scale),
-                control: CGPoint(x: cx + 5 * scale, y: cy + 16 * scale)
+                to: CGPoint(x: 34 * scale, y: 38 * scale),
+                control: CGPoint(x: 32 * scale, y: 34 * scale)
             )
             starPath.addQuadCurve(
-                to: CGPoint(x: cx - 2 * scale, y: cy + 6 * scale),
-                control: CGPoint(x: cx - 2 * scale, y: cy + 14 * scale)
+                to: CGPoint(x: 35 * scale, y: 46 * scale),
+                control: CGPoint(x: 36 * scale, y: 42 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 36 * scale, y: 54 * scale),
+                control: CGPoint(x: 34 * scale, y: 50 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 32 * scale, y: 58 * scale),
+                control: CGPoint(x: 35 * scale, y: 57 * scale)
+            )
+
+            // Bottom right arm coming back
+            starPath.addQuadCurve(
+                to: CGPoint(x: 28 * scale, y: 52 * scale),
+                control: CGPoint(x: 29 * scale, y: 56 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 28 * scale, y: 44 * scale),
+                control: CGPoint(x: 27 * scale, y: 48 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 28 * scale, y: 36 * scale),
+                control: CGPoint(x: 29 * scale, y: 40 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 26 * scale, y: 32 * scale),
+                control: CGPoint(x: 27 * scale, y: 33 * scale)
             )
 
             // Bottom left arm
             starPath.addQuadCurve(
-                to: CGPoint(x: cx - 16 * scale, y: cy + 21 * scale),
-                control: CGPoint(x: cx - 8 * scale, y: cy + 14 * scale)
+                to: CGPoint(x: 22 * scale, y: 36 * scale),
+                control: CGPoint(x: 24 * scale, y: 33 * scale)
             )
             starPath.addQuadCurve(
-                to: CGPoint(x: cx - 4 * scale, y: cy + 2 * scale),
-                control: CGPoint(x: cx - 8 * scale, y: cy + 6 * scale)
-            )
-
-            // Top left arm
-            starPath.addQuadCurve(
-                to: CGPoint(x: cx - 27 * scale, y: cy - 4 * scale),
-                control: CGPoint(x: cx - 14 * scale, y: cy - 4 * scale)
+                to: CGPoint(x: 18 * scale, y: 44 * scale),
+                control: CGPoint(x: 20 * scale, y: 40 * scale)
             )
             starPath.addQuadCurve(
-                to: CGPoint(x: cx - 2 * scale, y: cy - 6 * scale),
-                control: CGPoint(x: cx - 10 * scale, y: cy - 5 * scale)
+                to: CGPoint(x: 14 * scale, y: 51 * scale),
+                control: CGPoint(x: 16 * scale, y: 48 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 9 * scale, y: 53 * scale),
+                control: CGPoint(x: 12 * scale, y: 54 * scale)
             )
 
+            // Bottom left arm coming back
             starPath.addQuadCurve(
-                to: CGPoint(x: cx, y: cy - 27 * scale),
-                control: CGPoint(x: cx - 2 * scale, y: cy - 18 * scale)
+                to: CGPoint(x: 10 * scale, y: 46 * scale),
+                control: CGPoint(x: 8 * scale, y: 50 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 15 * scale, y: 38 * scale),
+                control: CGPoint(x: 12 * scale, y: 42 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 18 * scale, y: 31 * scale),
+                control: CGPoint(x: 18 * scale, y: 34 * scale)
+            )
+
+            // Left arm
+            starPath.addQuadCurve(
+                to: CGPoint(x: 10 * scale, y: 33 * scale),
+                control: CGPoint(x: 14 * scale, y: 32 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 3 * scale, y: 32 * scale),
+                control: CGPoint(x: 6 * scale, y: 34 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 3 * scale, y: 26 * scale),
+                control: CGPoint(x: 1 * scale, y: 29 * scale)
+            )
+
+            // Left arm coming back
+            starPath.addQuadCurve(
+                to: CGPoint(x: 10 * scale, y: 25 * scale),
+                control: CGPoint(x: 6 * scale, y: 24 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 18 * scale, y: 26 * scale),
+                control: CGPoint(x: 14 * scale, y: 26 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 26 * scale, y: 25 * scale),
+                control: CGPoint(x: 22 * scale, y: 26 * scale)
+            )
+
+            // Back to top
+            starPath.addQuadCurve(
+                to: CGPoint(x: 28 * scale, y: 20 * scale),
+                control: CGPoint(x: 28 * scale, y: 24 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 27 * scale, y: 12 * scale),
+                control: CGPoint(x: 28 * scale, y: 16 * scale)
+            )
+            starPath.addQuadCurve(
+                to: CGPoint(x: 30 * scale, y: 3 * scale),
+                control: CGPoint(x: 26 * scale, y: 8 * scale)
             )
 
             starPath.closeSubpath()
 
-            // Fill main body
-            context.fill(starPath, with: .color(Color(red: 0.91, green: 0.60, blue: 0.66)))
+            // Fill main body - #e89aa8
+            context.fill(starPath, with: .color(Color(hex: "e89aa8")))
 
-            // Stroke outline
+            // Stroke outline - white
             context.stroke(starPath, with: .color(.white), lineWidth: 1.5)
 
-            // Center
+            // Center area - #db8595
             let centerPath = Path(ellipseIn: CGRect(
-                x: cx - 7 * scale,
-                y: cy - 7 * scale,
+                x: 23 * scale,
+                y: 23 * scale,
                 width: 14 * scale,
                 height: 14 * scale
             ))
-            context.fill(centerPath, with: .color(Color(red: 0.86, green: 0.52, blue: 0.58)))
+            context.fill(centerPath, with: .color(Color(hex: "db8595")))
             context.stroke(centerPath, with: .color(.white), lineWidth: 1)
 
-            // Texture dots on arms
-            let dotPositions: [(CGFloat, CGFloat, CGFloat)] = [
-                (0, -14, 3), (0, -22, 2),
-                (15, -2, 4), (22, -2, 2.5),
-                (5, 15, 3), (4, 22, 2),
-                (-14, 12, 3), (-19, 18, 2),
-                (-15, -2, 4), (-22, -2, 2)
+            // Texture cells on arms - matching HTML exactly
+            let textureEllipses: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                // Top arm
+                (30, 14, 3, 4),
+                (30, 8, 2, 2.5),
+                // Right arm
+                (45, 28, 4, 3),
+                (52, 28, 2.5, 2),
+                // Bottom right arm
+                (35, 45, 3, 4),
+                (34, 52, 2, 2.5),
+                // Bottom left arm
+                (16, 42, 3, 3.5),
+                (11, 48, 2, 2),
+                // Left arm
+                (12, 28, 4, 3),
+                (5, 28, 2, 2)
             ]
 
-            for (dx, dy, r) in dotPositions {
-                let dotPath = Path(ellipseIn: CGRect(
-                    x: cx + dx * scale - r * scale / 2,
-                    y: cy + dy * scale - r * scale / 2,
-                    width: r * scale,
-                    height: r * scale * 1.2
+            for (cx, cy, rx, ry) in textureEllipses {
+                let ellipsePath = Path(ellipseIn: CGRect(
+                    x: (cx - rx) * scale,
+                    y: (cy - ry) * scale,
+                    width: rx * 2 * scale,
+                    height: ry * 2 * scale
                 ))
-                context.fill(dotPath, with: .color(Color(red: 0.86, green: 0.52, blue: 0.58)))
-                context.stroke(dotPath, with: .color(Color(red: 0.96, green: 0.77, blue: 0.81)), lineWidth: 0.6)
+                context.fill(ellipsePath, with: .color(Color(hex: "db8595")))
+                context.stroke(ellipsePath, with: .color(Color(hex: "f5c5cf")), lineWidth: 0.8)
+            }
+
+            // Small dots texture - #d07585
+            let dotPositions: [(CGFloat, CGFloat)] = [
+                (30, 20),
+                (38, 28),
+                (34, 38),
+                (24, 38),
+                (22, 28)
+            ]
+
+            for (cx, cy) in dotPositions {
+                let dotPath = Path(ellipseIn: CGRect(
+                    x: (cx - 1.5) * scale,
+                    y: (cy - 1.5) * scale,
+                    width: 3 * scale,
+                    height: 3 * scale
+                ))
+                context.fill(dotPath, with: .color(Color(hex: "d07585")))
+                context.stroke(dotPath, with: .color(Color(hex: "f5c5cf")), lineWidth: 0.5)
             }
         }
+    }
+}
+
+// MARK: - Color Extension for Hex
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 
