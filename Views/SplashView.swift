@@ -2,7 +2,7 @@
 //  SplashView.swift
 //  Dioboo
 //
-//  Splash screen with animated logo
+//  Splash screen - matches ouverture.html exactly
 //
 
 import SwiftUI
@@ -12,89 +12,112 @@ struct SplashView: View {
     let onComplete: () -> Void
 
     @State private var logoOpacity: Double = 0
-    @State private var logoScale: Double = 0.8
+    @State private var logoScale: Double = 0.9
     @State private var titleOpacity: Double = 0
+    @State private var titleOffset: CGFloat = 8
+    @State private var containerOpacity: Double = 1
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        ZStack {
+            // Background - exact color from HTML: #070A14
+            Color(hex: "070A14")
+                .ignoresSafeArea()
 
-            // Logo
-            DiobooLogo()
-                .frame(width: 80, height: 80)
-                .opacity(logoOpacity)
-                .scaleEffect(logoScale)
+            VStack(spacing: 24) {
+                // Logo image - Formelogo.png (add to Assets as "Logo")
+                Image("Logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 140)
+                    .opacity(logoOpacity)
+                    .scaleEffect(logoScale)
 
-            // Title
-            Text("Dioboo")
-                .font(DiobooTheme.title(32))
-                .foregroundColor(DiobooTheme.textePrincipal)
-                .opacity(titleOpacity)
-
-            Spacer()
+                // Title image - titrelogo.png (add to Assets as "LogoText")
+                Image("LogoText")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 160)
+                    .opacity(titleOpacity)
+                    .offset(y: titleOffset)
+            }
+            .opacity(containerOpacity)
         }
         .onAppear {
-            // Logo fade in
-            withAnimation(.easeOut(duration: 0.8)) {
-                logoOpacity = 1
-                logoScale = 1
-            }
+            animateIn()
+        }
+    }
 
-            // Title fade in (delayed)
-            withAnimation(.easeOut(duration: 0.6).delay(0.4)) {
-                titleOpacity = 1
-            }
+    private func animateIn() {
+        // Logo appears: 0 → 1.4s (matches HTML @keyframes logoAppear)
+        withAnimation(.easeOut(duration: 1.4)) {
+            logoOpacity = 1
+            logoScale = 1
+        }
 
-            // Auto-navigate after 2.5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                onComplete()
+        // Title appears: 0.8s → 1.8s (matches HTML @keyframes nameAppear)
+        withAnimation(.easeOut(duration: 1.0).delay(0.8)) {
+            titleOpacity = 1
+            titleOffset = 0
+        }
+
+        // Fade out container: 2.6s → 3.4s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+            withAnimation(.easeIn(duration: 0.8)) {
+                containerOpacity = 0
             }
+        }
+
+        // Navigate to next screen: 3.4s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.4) {
+            onComplete()
         }
     }
 }
 
-// MARK: - Dioboo Logo
+// MARK: - Dioboo Logo (Fallback if image not found)
+// This is only used if the Logo image is not in Assets
+// The real logo should be added as an image asset
 
 struct DiobooLogo: View {
     var body: some View {
+        // Fallback logo - soft purple organic shape
+        // In production, use Image("Logo") instead
         ZStack {
-            // Abstract curved shape representing calm/transition
-            Circle()
-                .stroke(
+            // Main organic shape (approximation of the actual logo)
+            Ellipse()
+                .fill(
                     LinearGradient(
                         colors: [
-                            DiobooTheme.accentPrincipal,
-                            DiobooTheme.accentSecondaire
+                            Color(hex: "E8D4FF").opacity(0.8),
+                            Color(hex: "D4C4FF").opacity(0.6)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 3
-                )
-                .frame(width: 60, height: 60)
-
-            // Inner soft glow
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            DiobooTheme.accentPrincipal.opacity(0.3),
-                            DiobooTheme.accentPrincipal.opacity(0)
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 30
                     )
                 )
-                .frame(width: 50, height: 50)
+                .frame(width: 80, height: 48)
+                .rotationEffect(.degrees(-15))
+                .blur(radius: 1)
+
+            // Small circle accent (top left of logo)
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "E8D4FF").opacity(0.6),
+                            Color(hex: "D4C4FF").opacity(0.4)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 24, height: 18)
+                .offset(x: -20, y: -25)
+                .blur(radius: 0.5)
         }
     }
 }
 
 #Preview {
-    ZStack {
-        DiobooTheme.backgroundGradient
-            .ignoresSafeArea()
-        SplashView(onComplete: {})
-    }
+    SplashView(onComplete: {})
 }

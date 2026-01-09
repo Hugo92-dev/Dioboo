@@ -2,7 +2,7 @@
 //  HomeView.swift
 //  Dioboo
 //
-//  Welcome screen - "You can close the day here"
+//  Welcome screen - matches accueil.html exactly
 //
 
 import SwiftUI
@@ -11,100 +11,76 @@ import Combine
 struct HomeView: View {
     let onBegin: () -> Void
 
-    @State private var logoOpacity: Double = 0
-    @State private var titleOpacity: Double = 0
-    @State private var subtitleOpacity: Double = 0
-    @State private var buttonOpacity: Double = 0
+    @State private var contentOpacity: Double = 0
+    @State private var contentOffset: CGFloat = 10
 
     var body: some View {
         ZStack {
-            // Ambient glows
-            AmbientGlow(
-                color: DiobooTheme.accentPrincipal,
-                position: CGPoint(x: 80, y: 200),
-                size: 300
-            )
-            AmbientGlow(
-                color: DiobooTheme.accentSecondaire,
-                position: CGPoint(x: 320, y: 600),
-                size: 350
-            )
+            // Background - exact color from HTML: #070A14
+            Color(hex: "070A14")
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
 
-                // Logo
-                DiobooLogo()
-                    .frame(width: 70, height: 70)
-                    .opacity(logoOpacity)
-                    .padding(.bottom, 40)
+                // Logo - Formelogo.png (90x54 in HTML)
+                Image("Logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 90, height: 54)
+                    .padding(.bottom, 44)
 
-                // Title
+                // Title - exact text and styling from HTML
                 Text("You can close\nthe day here.")
-                    .font(DiobooTheme.title(28))
-                    .foregroundColor(DiobooTheme.textePrincipal)
+                    .font(.custom("Nunito", size: 26).weight(.semibold))
+                    .foregroundColor(Color(hex: "F5F7FF"))
                     .multilineTextAlignment(.center)
-                    .opacity(titleOpacity)
-                    .padding(.bottom, 16)
+                    .lineSpacing(26 * 0.35) // line-height 1.35
 
-                // Subtitle
-                Text("A moment of quiet before sleep.")
-                    .font(DiobooTheme.subtitle(16))
-                    .foregroundColor(DiobooTheme.texteSecondaire)
-                    .opacity(subtitleOpacity)
+                // Subtitle - exact text from HTML
+                Text("A quiet moment of transition.")
+                    .font(.custom("Nunito", size: 15).weight(.regular))
+                    .foregroundColor(Color(hex: "B8C0E6"))
+                    .padding(.top, 14)
 
                 Spacer()
 
-                // Begin button
+                // Begin button - exact styling from HTML
                 Button(action: onBegin) {
                     Text("Begin")
-                        .font(DiobooTheme.body(16))
-                        .fontWeight(.medium)
-                        .foregroundColor(DiobooTheme.fondPrincipal)
-                        .frame(width: 200, height: 50)
+                        .font(.custom("Nunito", size: 17).weight(.semibold))
+                        .foregroundColor(Color(hex: "070A14"))
+                        .padding(.horizontal, 52)
+                        .padding(.vertical, 18)
                         .background(
                             LinearGradient(
                                 colors: [
-                                    DiobooTheme.accentPrincipal,
-                                    DiobooTheme.accentSecondaire
+                                    Color(hex: "86A6FF"),
+                                    Color(hex: "C6A6FF")
                                 ],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
                         )
-                        .cornerRadius(25)
-                        .shadow(color: DiobooTheme.accentPrincipal.opacity(0.4), radius: 15, y: 5)
+                        .cornerRadius(30)
                 }
-                .opacity(buttonOpacity)
+                .buttonStyle(ScaleButtonStyle())
                 .padding(.bottom, 60)
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, 28)
+            .opacity(contentOpacity)
+            .offset(y: contentOffset)
         }
         .onAppear {
-            animateIn()
-        }
-    }
-
-    private func animateIn() {
-        withAnimation(.easeOut(duration: 0.6)) {
-            logoOpacity = 1
-        }
-        withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
-            titleOpacity = 1
-        }
-        withAnimation(.easeOut(duration: 0.6).delay(0.4)) {
-            subtitleOpacity = 1
-        }
-        withAnimation(.easeOut(duration: 0.6).delay(0.6)) {
-            buttonOpacity = 1
+            // Animation matches HTML: fadeIn 0.8s ease
+            withAnimation(.easeOut(duration: 0.8)) {
+                contentOpacity = 1
+                contentOffset = 0
+            }
         }
     }
 }
 
 #Preview {
-    ZStack {
-        DiobooTheme.backgroundGradient
-            .ignoresSafeArea()
-        HomeView(onBegin: {})
-    }
+    HomeView(onBegin: {})
 }
