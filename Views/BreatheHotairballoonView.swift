@@ -186,7 +186,7 @@ struct HotAirBalloonCloudsHighLayer: View {
     var body: some View {
         GeometryReader { geo in
             // Cloud H1 - left: 5%, width: 80px, height: 25px, 50s animation
-            let drift1 = sin(timestamp / 50000 * .pi * 2) * 30
+            let drift1 = CGFloat(sin(timestamp / 50000 * .pi * 2) * 30)
             Ellipse()
                 .fill(Color.white.opacity(0.4))
                 .frame(width: 80, height: 25)
@@ -194,7 +194,7 @@ struct HotAirBalloonCloudsHighLayer: View {
                 .position(x: geo.size.width * 0.05 + 40 + drift1, y: geo.size.height * 0.08)
 
             // Cloud H2 - left: 60%, width: 100px, height: 30px, opacity: 0.3, 60s reverse
-            let drift2 = -sin(timestamp / 60000 * .pi * 2) * 30
+            let drift2 = CGFloat(-sin(timestamp / 60000 * .pi * 2) * 30)
             Ellipse()
                 .fill(Color.white.opacity(0.3))
                 .frame(width: 100, height: 30)
@@ -212,7 +212,7 @@ struct HotAirBalloonCloudsMidLayer: View {
     var body: some View {
         GeometryReader { geo in
             // Cloud M1 - left: -10%, width: 120px, height: 35px, opacity: 0.35, 45s linear
-            let drift1 = (timestamp.truncatingRemainder(dividingBy: 45000)) / 45000 * 60
+            let drift1 = CGFloat((timestamp.truncatingRemainder(dividingBy: 45000)) / 45000 * 60)
             Ellipse()
                 .fill(Color.white.opacity(0.35))
                 .frame(width: 120, height: 35)
@@ -220,7 +220,7 @@ struct HotAirBalloonCloudsMidLayer: View {
                 .position(x: geo.size.width * -0.10 + 60 + drift1, y: geo.size.height * 0.25)
 
             // Cloud M2 - left: 50%, width: 90px, height: 28px, opacity: 0.25, 55s
-            let drift2 = sin(timestamp / 55000 * .pi * 2) * 30
+            let drift2 = CGFloat(sin(timestamp / 55000 * .pi * 2) * 30)
             Ellipse()
                 .fill(Color.white.opacity(0.25))
                 .frame(width: 90, height: 28)
@@ -228,7 +228,7 @@ struct HotAirBalloonCloudsMidLayer: View {
                 .position(x: geo.size.width * 0.50 + 45 + drift2, y: geo.size.height * 0.25)
 
             // Cloud M3 - left: 80%, width: 70px, height: 22px, opacity: 0.3, 40s reverse
-            let drift3 = -sin(timestamp / 40000 * .pi * 2) * 30
+            let drift3 = CGFloat(-sin(timestamp / 40000 * .pi * 2) * 30)
             Ellipse()
                 .fill(Color.white.opacity(0.3))
                 .frame(width: 70, height: 22)
@@ -245,7 +245,7 @@ struct HotAirBalloonMistLayer: View {
     let riseHeight: CGFloat
 
     var body: some View {
-        let verticalWave = cos(cycleProgress * .pi * 2)
+        let verticalWave = CGFloat(cos(Double(cycleProgress) * .pi * 2))
         let verticalPos = (1 - verticalWave) / 2 * riseHeight
         let balloonAltitude = verticalPos / riseHeight
         let mistProximity = 1 - abs(balloonAltitude - 0.4) * 3
@@ -416,7 +416,7 @@ struct HotAirBalloonLandscapeView: View {
     let riseHeight: CGFloat
 
     var body: some View {
-        let verticalWave = cos(cycleProgress * .pi * 2)
+        let verticalWave = CGFloat(cos(Double(cycleProgress) * .pi * 2))
         let verticalPos = (1 - verticalWave) / 2 * riseHeight
         let balloonAltitude = verticalPos / riseHeight
         // Parallax: landscapeScale = 1 + (1 - balloonAltitude) * 0.15
@@ -602,16 +602,16 @@ struct HotAirBalloonMainView: View {
 
     var body: some View {
         // Calculate all positions matching HTML exactly
-        let verticalWave = cos(cycleProgress * .pi * 2)
+        let verticalWave = CGFloat(cos(Double(cycleProgress) * .pi * 2))
         let verticalPos = (1 - verticalWave) / 2 * riseHeight
-        let horizontalDrift = sin(cycleProgress * .pi * 2) * 15
+        let horizontalDrift = CGFloat(sin(Double(cycleProgress) * .pi * 2) * 15)
 
         // Micro floating oscillation
-        let floatY = sin(timestamp / 1500) * 4
-        let floatX = cos(timestamp / 2000) * 3
+        let floatY = CGFloat(sin(timestamp / 1500) * 4)
+        let floatX = CGFloat(cos(timestamp / 2000) * 3)
 
         // Basket sway
-        let basketSway = sin(timestamp / 800) * 1.5
+        let basketSway = CGFloat(sin(timestamp / 800) * 1.5)
 
         // Flame intensity
         let flameIntensity = isInhaling ? easeInOutSine(min(1, cycleProgress * 2)) : 0
