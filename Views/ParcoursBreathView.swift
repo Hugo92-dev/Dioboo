@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ParcoursBreathView: View {
     let onSelectParcours: (BreatheParcours) -> Void

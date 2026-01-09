@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct BreatheContainerView: View {
     let parcours: BreatheParcours

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ReadView: View {
     let duration: Int

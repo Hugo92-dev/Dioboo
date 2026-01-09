@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct BreatheSeagullView: View {
     let duration: Int

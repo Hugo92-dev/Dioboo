@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct DurationView: View {
     let ritual: Ritual

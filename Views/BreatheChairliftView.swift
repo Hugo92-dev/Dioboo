@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct BreatheChairliftView: View {
     let duration: Int
