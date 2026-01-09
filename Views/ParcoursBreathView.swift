@@ -109,48 +109,52 @@ struct ParcoursCard: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                HStack(spacing: 16) {
-                    // Icon
-                    Text(parcours.icon)
-                        .font(.system(size: 28))
-                        .frame(width: 44)
-
-                    // Text content
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(parcours.rawValue)
-                            .font(DiobooTheme.body(16))
-                            .fontWeight(.medium)
-                            .foregroundColor(DiobooTheme.textePrincipal)
-
-                        Text(parcours.description)
-                            .font(DiobooTheme.caption(13))
-                            .foregroundColor(DiobooTheme.texteSecondaire)
-                    }
-
-                    Spacer()
-
-                    // Arrow
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(DiobooTheme.texteSecondaire)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(DiobooTheme.surface.opacity(0.6))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(DiobooTheme.bordure, lineWidth: 1)
+            HStack(spacing: 16) {
+                // Icon with gradient background (matches HTML parcours-icon)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                colors: [DiobooTheme.accentSecondaire, Color(hex: "A686FF")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                )
+                        .frame(width: 48, height: 48)
 
-                // Premium badge
+                    Text(parcours.icon)
+                        .font(.system(size: 24))
+                }
+
+                // Text content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(parcours.rawValue)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(DiobooTheme.textePrincipal)
+
+                    Text(parcours.description)
+                        .font(.system(size: 13))
+                        .foregroundColor(DiobooTheme.texteSecondaire.opacity(0.85))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(DiobooTheme.surface.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(DiobooTheme.bordure, lineWidth: 1)
+                    )
+            )
+            .overlay(alignment: .topTrailing) {
+                // Premium badge - positioned like HTML (top: 10px, right: 12px)
                 if isPremium {
                     PremiumBadge()
-                        .padding(.top, 10)
-                        .padding(.trailing, 12)
+                        .offset(x: -12, y: 10)
                 }
             }
         }

@@ -113,27 +113,26 @@ struct DurationButton: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: 4) {
-                    Text("\(minutes)")
-                        .font(.system(size: 36, weight: .light, design: .rounded))
-                        .foregroundColor(DiobooTheme.textePrincipal)
+            VStack(spacing: 6) {
+                Text("\(minutes)")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(DiobooTheme.textePrincipal)
 
-                    Text("min")
-                        .font(DiobooTheme.caption(14))
-                        .foregroundColor(DiobooTheme.texteSecondaire)
-                }
-                .frame(width: 90, height: 100)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(DiobooTheme.surface.opacity(0.6))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(DiobooTheme.bordure, lineWidth: 1)
-                        )
-                )
-
-                // Premium badge
+                Text("min")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(DiobooTheme.texteSecondaire.opacity(0.8))
+            }
+            .frame(width: 92, height: 100)
+            .background(
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(DiobooTheme.surface.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(DiobooTheme.bordure, lineWidth: 1)
+                    )
+            )
+            .overlay(alignment: .topTrailing) {
+                // Premium badge - positioned outside like HTML (top: -6px, right: -6px)
                 if isPremium {
                     PremiumBadge()
                         .offset(x: 6, y: -6)
