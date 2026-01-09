@@ -580,8 +580,6 @@ struct BalloonEnvelopeView: View {
                 endPoint: CGPoint(x: size.width, y: envelopeCenterY)
             ))
 
-            context.resetClip()
-
             // Bottom opening
             let openingPath = Path(ellipseIn: CGRect(x: centerX - 12, y: 95, width: 24, height: 10))
             context.fill(openingPath, with: .color(Color(hex: "4a3020")))
