@@ -183,13 +183,6 @@ struct BokehLayer: View {
                 let centerY = size.height * bokeh.y + offsetY
                 let radius = bokeh.size * scaleVariation / 2
 
-                let gradient = RadialGradient(
-                    colors: [bokeh.color.opacity(0.6 * (bokehIntensity + 0.4)), .clear],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: radius
-                )
-
                 context.fill(
                     Path(ellipseIn: CGRect(
                         x: centerX - radius,

@@ -598,18 +598,6 @@ struct BuoyView: View {
             )
             lowerRedPath.closeSubpath()
 
-            let redGradient = LinearGradient(
-                colors: [
-                    Color(red: 0.63, green: 0.13, blue: 0.13),
-                    Color(red: 0.82, green: 0.19, blue: 0.19),
-                    Color(red: 0.88, green: 0.25, blue: 0.25),
-                    Color(red: 0.82, green: 0.19, blue: 0.19),
-                    Color(red: 0.63, green: 0.13, blue: 0.13)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-
             context.fill(lowerRedPath, with: .linearGradient(
                 Gradient(colors: [
                     Color(red: 0.63, green: 0.13, blue: 0.13),

@@ -112,7 +112,8 @@ struct BreatheChairliftView: View {
     }
 
     private func startBreathingCycle() {
-        // Initial animation: inhale - cabin goes UP (progress from 0.5 to 1)
+        // Start at the sag point (t=0.5, lowest position)
+        // First animation: inhale - cabin goes UP (from 0.5 to 1.0)
         withAnimation(.easeInOut(duration: breatheDuration)) {
             breatheProgress = 1.0
             pylonOffset += 150
@@ -121,16 +122,25 @@ struct BreatheChairliftView: View {
 
         timer = Timer.scheduledTimer(withTimeInterval: breatheDuration, repeats: true) { _ in
             isInhaling.toggle()
-            withAnimation(.easeInOut(duration: breatheDuration)) {
-                if isInhaling {
-                    // Inhale: cabin goes UP (from 0.5 to 1.0)
+
+            if isInhaling {
+                // Inhale: cabin goes UP (from 0.5 to 1.0, sag 55→0)
+                // First jump to 0.5 without animation, then animate to 1.0
+                breatheProgress = 0.5
+                withAnimation(.easeInOut(duration: breatheDuration)) {
                     breatheProgress = 1.0
-                } else {
-                    // Exhale: cabin goes DOWN (from 0 to 0.5)
-                    breatheProgress = 0.5
+                    pylonOffset += 150
+                    forestOffset += 120
                 }
-                pylonOffset += 150
-                forestOffset += 120
+            } else {
+                // Exhale: cabin goes DOWN (from 0.0 to 0.5, sag 0→55)
+                // First jump to 0.0 without animation, then animate to 0.5
+                breatheProgress = 0.0
+                withAnimation(.easeInOut(duration: breatheDuration)) {
+                    breatheProgress = 0.5
+                    pylonOffset += 150
+                    forestOffset += 120
+                }
             }
         }
     }
@@ -468,13 +478,16 @@ struct ChairliftCabinView: View {
 
     private let pylonY: CGFloat = 380
 
+    // Total cabin height: connector(16) + rod(22) + body(62) = 100
+    // Connector center is at 8px from top of group
+    private let connectorOffset: CGFloat = 8
+
     var body: some View {
-        // Calculate Y position based on cable curve
-        // t = 0.5 is at sag (lowest), t = 0 or 1 is at pylon (highest)
-        let t = breatheProgress > 0.5 ? breatheProgress : (1 - breatheProgress)
-        let normalizedT = (t - 0.5) * 2 // 0 to 1
+        // Calculate Y position based on cable curve (connector should be ON the cable)
         let sagAmount = cableSag * 4 * breatheProgress * (1 - breatheProgress)
-        let cabinY = pylonY + sagAmount
+        let cableY = pylonY + sagAmount
+        // Position so connector (top of group + 8px) is at cable Y
+        let cabinY = cableY + 50 - connectorOffset // 50 = half of total height
 
         VStack(spacing: 0) {
             // Connector (circle at top)
