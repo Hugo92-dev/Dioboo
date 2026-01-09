@@ -1140,7 +1140,6 @@ struct FerrisCapsuleShape: View {
         }
     }
 }
-}
 
 #Preview {
     BreatheFerriswheelView(duration: 3, onComplete: {}, onBack: {})
