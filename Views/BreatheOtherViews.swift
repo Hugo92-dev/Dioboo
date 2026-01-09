@@ -159,10 +159,11 @@ struct BreatheAstronautView: View {
                     .offset(x: 100, y: 200)
 
                 // Astronaut
-                AstronautShape()
-                    .fill(Color.white)
-                    .frame(width: 60, height: 80)
-                    .offset(y: UIScreen.main.bounds.height * (astronautY - 0.5))
+                GeometryReader { geo in
+                    AstronautShape()
+                        .frame(width: 60, height: 80)
+                        .position(x: geo.size.width / 2, y: geo.size.height * astronautY)
+                }
             }
         }
         .onAppear {
@@ -260,9 +261,11 @@ struct BreatheHotairballoonView: View {
                 }
 
                 // Hot air balloon
-                HotAirBalloon()
-                    .frame(width: 120, height: 180)
-                    .offset(y: UIScreen.main.bounds.height * (balloonY - 0.5))
+                GeometryReader { geo in
+                    HotAirBalloon()
+                        .frame(width: 120, height: 180)
+                        .position(x: geo.size.width / 2, y: geo.size.height * balloonY)
+                }
             }
         }
         .onAppear {
@@ -588,10 +591,12 @@ struct BreatheGlidingbirdView: View {
                 CanyonWalls(offset: canyonOffset)
 
                 // Gliding bird
-                SeagullShape(isFlapping: false)
-                    .fill(Color(hex: "2F4F4F"))
-                    .frame(width: 100, height: 50)
-                    .offset(y: UIScreen.main.bounds.height * (birdY - 0.5))
+                GeometryReader { geo in
+                    SeagullShape(isFlapping: false)
+                        .fill(Color(hex: "2F4F4F"))
+                        .frame(width: 100, height: 50)
+                        .position(x: geo.size.width / 2, y: geo.size.height * birdY)
+                }
             }
         }
         .onAppear {

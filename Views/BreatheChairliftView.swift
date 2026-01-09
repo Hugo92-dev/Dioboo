@@ -186,7 +186,6 @@ struct MountainShape: Shape {
 
         for i in 0..<peaks {
             let peakX = peakWidth * CGFloat(i) + peakWidth / 2
-            let startX = peakWidth * CGFloat(i)
             let endX = peakWidth * CGFloat(i + 1)
 
             path.addLine(to: CGPoint(x: peakX, y: rect.height - height * CGFloat.random(in: 0.7...1.0)))

@@ -55,11 +55,13 @@ struct BreatheSeagullView: View {
             OceanWaves(offset: waveOffset)
 
             // Seagull
-            SeagullShape(isFlapping: isInhaling)
-                .fill(Color.white)
-                .frame(width: 80, height: 40)
-                .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
-                .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height * seagullY)
+            GeometryReader { geo in
+                SeagullShape(isFlapping: isInhaling)
+                    .fill(Color.white)
+                    .frame(width: 80, height: 40)
+                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+                    .position(x: geo.size.width / 2, y: geo.size.height * seagullY)
+            }
 
             // UI Overlay
             VStack {
