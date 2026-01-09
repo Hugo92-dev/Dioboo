@@ -706,12 +706,10 @@ struct FerrisLamppostsView: View {
                 // Pole
                 context.fill(
                     Path(CGRect(x: (x - 1) * scale, y: 6 * scale, width: 2 * scale, height: 25 * scale)),
-                    with: .color(
-                        LinearGradient(
-                            colors: [Color(hex: "3a4050"), Color(hex: "2a3040")],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                    with: .linearGradient(
+                        Gradient(colors: [Color(hex: "3a4050"), Color(hex: "2a3040")]),
+                        startPoint: CGPoint(x: x * scale, y: 6 * scale),
+                        endPoint: CGPoint(x: x * scale, y: 31 * scale)
                     )
                 )
             }
