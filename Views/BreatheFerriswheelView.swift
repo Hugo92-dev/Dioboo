@@ -675,21 +675,22 @@ struct FerrisCapsuleView: View {
         return -(cos(.pi * t) - 1) / 2
     }
 
-    var body: some View {
+    private var capsuleAngle: CGFloat {
         // Calculate angle based on breath cycle
         // Inhale: 90 -> 270 (bottom to top)
         // Exhale: 270 -> 450 (top to bottom, wraps to 90)
         let isInhale = cycleProgress < 0.5
-        let angle: CGFloat
         if isInhale {
             let inhaleProgress = easeInOutSine(cycleProgress * 2)
-            angle = 90 + (inhaleProgress * 180)
+            return 90 + (inhaleProgress * 180)
         } else {
             let exhaleProgress = easeInOutSine((cycleProgress - 0.5) * 2)
-            angle = 270 + (exhaleProgress * 180)
+            return 270 + (exhaleProgress * 180)
         }
+    }
 
-        let angleRad = angle * .pi / 180
+    var body: some View {
+        let angleRad = capsuleAngle * .pi / 180
         let capsuleX = wheelCenterX + cos(angleRad) * wheelRadius
         let capsuleY = wheelCenterY + sin(angleRad) * wheelRadius
 
@@ -718,7 +719,6 @@ struct CapsuleShape: View {
     var body: some View {
         Canvas { context, size in
             let centerX = size.width / 2
-            let centerY = size.height / 2
 
             // Connector circle at top
             context.fill(
