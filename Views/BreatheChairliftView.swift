@@ -113,9 +113,13 @@ struct BreatheChairliftView: View {
                 // Snowflakes
                 ChairliftSnowLayer()
 
-                // Yellow cabin - connector must be ON the cable
-                ChairliftCabinView(cabinCableY: cabinCableY)
-                    .position(x: screenWidth * cabinScreenXRatio, y: cabinCableY)
+                // Yellow cabin - connector center must be exactly ON the cable
+                // Cabin total height: connector(16) + rod(22) + body(62) = 100
+                // Connector center is 8px from top
+                // To position connector center at cabinCableY, offset cabin down by:
+                // (totalHeight/2 - connectorRadius) = (100/2 - 8) = 42
+                ChairliftCabinView()
+                    .position(x: screenWidth * cabinScreenXRatio, y: cabinCableY + 42)
 
                 // UI Overlay
                 VStack {
@@ -393,10 +397,11 @@ struct ChairliftForestLayer: View {
     let offset: CGFloat
     let screenHeight: CGFloat
 
-    // Row configs matching HTML exactly
-    // bottom: 36%, 27%, 18%, 8%, -3%
-    // scale: 0.6, 0.72, 0.85, 1.0, 1.15
-    private let rowConfigs: [(bottom: CGFloat, scale: CGFloat, colors: [String], count: Int, spacing: CGFloat, parallax: CGFloat)] = [
+    // Row configs - forest only in bottom 45% of screen (below mountains)
+    // In HTML: mountains end around 55% from top, forest starts there
+    // Row Y positions are from BOTTOM of screen
+    // We clip the forest to only show below mountains
+    private let rowConfigs: [(bottomRatio: CGFloat, scale: CGFloat, colors: [String], count: Int, spacing: CGFloat, parallax: CGFloat)] = [
         (0.36, 0.6, ["3CB371", "2E8B57", "228B22", "32CD32"], 80, 16, 0.5),
         (0.27, 0.72, ["3CB371", "2E8B57", "228B22", "32CD32"], 75, 18, 0.6),
         (0.18, 0.85, ["006400", "008000", "1A6B1A", "228B22"], 70, 20, 0.75),
@@ -406,9 +411,17 @@ struct ChairliftForestLayer: View {
 
     var body: some View {
         GeometryReader { geo in
+            // Forest is clipped to only show in bottom 50% of screen
+            // This prevents trees from appearing on the mountains
+            let forestTopY = geo.size.height * 0.55 // Mountains end around 55%
+
             ZStack {
                 ForEach(0..<rowConfigs.count, id: \.self) { i in
                     let config = rowConfigs[i]
+                    // Calculate Y position: bottomRatio is from bottom
+                    // y = height * (1 - bottomRatio)
+                    let rowY = geo.size.height * (1 - config.bottomRatio)
+
                     ChairliftTreeRow(
                         treeCount: config.count,
                         scale: config.scale,
@@ -417,9 +430,19 @@ struct ChairliftForestLayer: View {
                         offset: offset * config.parallax,
                         screenWidth: geo.size.width
                     )
-                    .position(x: geo.size.width / 2, y: geo.size.height * (1 - config.bottom))
+                    .position(x: geo.size.width / 2, y: rowY)
                 }
             }
+            .clipShape(
+                Rectangle()
+                    .offset(y: forestTopY)
+            )
+            .mask(
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: forestTopY)
+                    Color.white
+                }
+            )
         }
     }
 }
@@ -511,8 +534,11 @@ struct ChairliftPylonsLayer: View {
 
                 // Only draw if on screen
                 if screenX > -100 && screenX < geo.size.width + 100 {
-                    ChairliftPylon(poleHeight: screenHeight - pylonBaseY + 150)
-                        .position(x: screenX, y: pylonBaseY + 14) // +14 to account for wheel center
+                    ChairliftPylon(
+                        pylonY: pylonBaseY,
+                        screenHeight: screenHeight
+                    )
+                    .position(x: screenX, y: pylonBaseY)
                 }
             }
         }
@@ -520,11 +546,55 @@ struct ChairliftPylonsLayer: View {
 }
 
 struct ChairliftPylon: View {
-    let poleHeight: CGFloat
+    let pylonY: CGFloat
+    let screenHeight: CGFloat
+
+    // Pylon structure from HTML:
+    // - Wheel at TOP (at pylonY, where cable passes)
+    // - Arm below wheel
+    // - Pole extends DOWN from arm to bottom of screen
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Wheel at top - radial gradient matching HTML
+        ZStack {
+            // Pole - extends from below arm to bottom of screen
+            // Positioned so it starts below the wheel/arm and goes down
+            let poleHeight = screenHeight - pylonY + 100
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "5A7A9A"),
+                            Color(hex: "9ABBCF"),
+                            Color(hex: "7A9AB8"),
+                            Color(hex: "5A7A9A")
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 16, height: poleHeight)
+                .offset(y: poleHeight / 2 + 8) // Position below wheel
+                .shadow(color: .black.opacity(0.3), radius: 6, x: 4)
+
+            // Arm - horizontal bar below wheel
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "8AABBF"),
+                            Color(hex: "6A8BA8"),
+                            Color(hex: "4A6B8A")
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 90, height: 16)
+                .offset(y: 8) // Below wheel center
+                .shadow(color: .black.opacity(0.4), radius: 5, y: 4)
+
+            // Wheel at TOP - this is where the cable passes through
+            // Centered at pylonY (where cable Y = pylonBaseY)
             Circle()
                 .fill(
                     RadialGradient(
@@ -544,42 +614,6 @@ struct ChairliftPylon: View {
                         .stroke(Color(hex: "3D5A6A"), lineWidth: 3)
                 )
                 .shadow(color: .black.opacity(0.5), radius: 4, y: 3)
-
-            // Arm - horizontal bar
-            RoundedRectangle(cornerRadius: 6)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "8AABBF"),
-                            Color(hex: "6A8BA8"),
-                            Color(hex: "4A6B8A")
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: 90, height: 16)
-                .offset(y: -14)
-                .shadow(color: .black.opacity(0.4), radius: 5, y: 4)
-                .zIndex(-1)
-
-            // Pole - vertical with horizontal gradient
-            RoundedRectangle(cornerRadius: 4)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "5A7A9A"),
-                            Color(hex: "9ABBCF"),
-                            Color(hex: "7A9AB8"),
-                            Color(hex: "5A7A9A")
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(width: 16, height: poleHeight)
-                .shadow(color: .black.opacity(0.3), radius: 6, x: 4)
-                .zIndex(-2)
         }
     }
 }
@@ -640,8 +674,6 @@ struct ChairliftCableView: View {
 // MARK: - Yellow Cabin
 
 struct ChairliftCabinView: View {
-    let cabinCableY: CGFloat
-
     var body: some View {
         VStack(spacing: 0) {
             // Connector circle - sits ON the cable
@@ -796,8 +828,6 @@ struct ChairliftCabinView: View {
                 .frame(height: 62)
             }
         }
-        // Offset to position connector at the cable Y
-        .offset(y: 8) // Half of connector height
     }
 }
 
