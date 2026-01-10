@@ -626,19 +626,19 @@ struct HotAirBalloonMainView: View {
 
             // Main balloon assembly
             VStack(spacing: 0) {
-                // Balloon envelope
-                HotAirBalloonEnvelopeOnly(flameIntensity: flameIntensity, timestamp: timestamp)
-                    .frame(width: 130, height: 150)
+                // Balloon envelope (proper teardrop shape)
+                HotAirBalloonEnvelopeOnly()
+                    .frame(width: 130, height: 155)
 
-                // Ropes connecting envelope to basket
-                HotAirBalloonRopesView()
-                    .frame(width: 60, height: 35)
-                    .offset(y: -5)
+                // Burner area with ropes and flame (between envelope and basket)
+                HotAirBalloonBurnerView(flameIntensity: flameIntensity, timestamp: timestamp)
+                    .frame(width: 60, height: 40)
+                    .offset(y: -8)
 
                 // Basket/Nacelle
                 HotAirBalloonBasketView()
                     .frame(width: 55, height: 35)
-                    .offset(y: -8)
+                    .offset(y: -14)
             }
             .rotationEffect(.degrees(basketSway))
         }
@@ -670,176 +670,189 @@ struct HotAirBalloonShadowView: View {
     }
 }
 
-// Balloon envelope only (without basket)
+// Balloon envelope only (without basket) - proper teardrop shape
 struct HotAirBalloonEnvelopeOnly: View {
-    let flameIntensity: CGFloat
-    let timestamp: TimeInterval
-
     var body: some View {
-        ZStack {
-            // Flame glow effect (behind envelope, visible when flame is active)
-            if flameIntensity > 0 {
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hex: "ffc864").opacity(0.7),
-                                Color(hex: "ff9632").opacity(0.4),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 50
-                        )
-                    )
-                    .frame(width: 80, height: 100)
-                    .blur(radius: 15)
-                    .offset(y: 20)
-                    .opacity(Double(flameIntensity) * 0.6)
+        Canvas { context, size in
+            let centerX = size.width / 2
+            // Envelope fills most of the canvas, with proper proportions
+            let envelopeWidth = size.width * 0.88
+            let envelopeHeight = size.height * 0.92
+            let topY: CGFloat = size.height * 0.04  // Small margin at top
+
+            // Create teardrop/balloon shape path
+            func createEnvelopePath(widthFactor: CGFloat, heightFactor: CGFloat) -> Path {
+                var path = Path()
+                let w = envelopeWidth * widthFactor
+                let h = envelopeHeight * heightFactor
+                let cx = centerX
+                let startY = topY + (envelopeHeight - h) / 2
+
+                // Start at bottom center
+                path.move(to: CGPoint(x: cx, y: startY + h))
+
+                // Left side curve (bottom to top)
+                path.addCurve(
+                    to: CGPoint(x: cx, y: startY),
+                    control1: CGPoint(x: cx - w * 0.55, y: startY + h * 0.85),
+                    control2: CGPoint(x: cx - w * 0.5, y: startY + h * 0.15)
+                )
+
+                // Right side curve (top to bottom)
+                path.addCurve(
+                    to: CGPoint(x: cx, y: startY + h),
+                    control1: CGPoint(x: cx + w * 0.5, y: startY + h * 0.15),
+                    control2: CGPoint(x: cx + w * 0.55, y: startY + h * 0.85)
+                )
+
+                path.closeSubpath()
+                return path
             }
 
-            // Envelope Canvas
-            Canvas { context, size in
-                let centerX = size.width / 2
-                let envelopeRadiusX: CGFloat = size.width * 0.42
-                let envelopeRadiusY: CGFloat = size.height * 0.45
-                let envelopeCenterY: CGFloat = size.height * 0.40
+            // Base white layer
+            let basePath = createEnvelopePath(widthFactor: 1.0, heightFactor: 1.0)
+            context.fill(basePath, with: .linearGradient(
+                Gradient(colors: [Color(hex: "d8d8d0"), Color(hex: "f5f5f0"), Color(hex: "d8d8d0")]),
+                startPoint: CGPoint(x: 0, y: size.height / 2),
+                endPoint: CGPoint(x: size.width, y: size.height / 2)
+            ))
 
-                // Create clip path for envelope
-                let envelopeClipPath = Path(ellipseIn: CGRect(
-                    x: centerX - envelopeRadiusX,
-                    y: envelopeCenterY - envelopeRadiusY,
-                    width: envelopeRadiusX * 2,
-                    height: envelopeRadiusY * 2
-                ))
+            // Clip to base envelope
+            context.clip(to: basePath)
 
-                // Base envelope - white gradient
-                context.fill(envelopeClipPath, with: .linearGradient(
-                    Gradient(colors: [Color(hex: "d8d8d0"), Color(hex: "f5f5f0"), Color(hex: "d8d8d0")]),
-                    startPoint: CGPoint(x: 0, y: envelopeCenterY),
-                    endPoint: CGPoint(x: size.width, y: envelopeCenterY)
-                ))
+            // Red stripe (outermost colored band)
+            let redPath = createEnvelopePath(widthFactor: 0.92, heightFactor: 0.95)
+            context.fill(redPath, with: .linearGradient(
+                Gradient(colors: [Color(hex: "c44a40"), Color(hex: "e85a50"), Color(hex: "c44a40")]),
+                startPoint: CGPoint(x: 0, y: size.height / 2),
+                endPoint: CGPoint(x: size.width, y: size.height / 2)
+            ))
 
-                // Clip context for stripes
-                context.clip(to: envelopeClipPath)
+            // Orange stripe
+            let orangePath = createEnvelopePath(widthFactor: 0.75, heightFactor: 0.88)
+            context.fill(orangePath, with: .linearGradient(
+                Gradient(colors: [Color(hex: "d4854a"), Color(hex: "f0a060"), Color(hex: "d4854a")]),
+                startPoint: CGPoint(x: 0, y: size.height / 2),
+                endPoint: CGPoint(x: size.width, y: size.height / 2)
+            ))
 
-                // Red stripe - outermost
-                var redStripe = Path()
-                redStripe.move(to: CGPoint(x: size.width * 0.12, y: envelopeCenterY))
-                redStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * -0.03), control: CGPoint(x: size.width * 0.12, y: 0))
-                redStripe.addQuadCurve(to: CGPoint(x: size.width * 0.88, y: envelopeCenterY), control: CGPoint(x: size.width * 0.88, y: 0))
-                redStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.82), control: CGPoint(x: size.width * 0.88, y: size.height * 0.70))
-                redStripe.addQuadCurve(to: CGPoint(x: size.width * 0.12, y: envelopeCenterY), control: CGPoint(x: size.width * 0.12, y: size.height * 0.70))
-                redStripe.closeSubpath()
-                context.fill(redStripe, with: .linearGradient(
-                    Gradient(colors: [Color(hex: "c44a40"), Color(hex: "e85a50"), Color(hex: "c44a40")]),
-                    startPoint: CGPoint(x: 0, y: envelopeCenterY),
-                    endPoint: CGPoint(x: size.width, y: envelopeCenterY)
-                ))
+            // Yellow stripe
+            let yellowPath = createEnvelopePath(widthFactor: 0.58, heightFactor: 0.80)
+            context.fill(yellowPath, with: .linearGradient(
+                Gradient(colors: [Color(hex: "c4a44a"), Color(hex: "e8c860"), Color(hex: "c4a44a")]),
+                startPoint: CGPoint(x: 0, y: size.height / 2),
+                endPoint: CGPoint(x: size.width, y: size.height / 2)
+            ))
 
-                // Orange stripe
-                var orangeStripe = Path()
-                orangeStripe.move(to: CGPoint(x: size.width * 0.20, y: envelopeCenterY))
-                orangeStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.02), control: CGPoint(x: size.width * 0.20, y: size.height * 0.08))
-                orangeStripe.addQuadCurve(to: CGPoint(x: size.width * 0.80, y: envelopeCenterY), control: CGPoint(x: size.width * 0.80, y: size.height * 0.08))
-                orangeStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.76), control: CGPoint(x: size.width * 0.80, y: size.height * 0.65))
-                orangeStripe.addQuadCurve(to: CGPoint(x: size.width * 0.20, y: envelopeCenterY), control: CGPoint(x: size.width * 0.20, y: size.height * 0.65))
-                orangeStripe.closeSubpath()
-                context.fill(orangeStripe, with: .linearGradient(
-                    Gradient(colors: [Color(hex: "d4854a"), Color(hex: "f0a060"), Color(hex: "d4854a")]),
-                    startPoint: CGPoint(x: 0, y: envelopeCenterY),
-                    endPoint: CGPoint(x: size.width, y: envelopeCenterY)
-                ))
+            // White/cream center
+            let whitePath = createEnvelopePath(widthFactor: 0.38, heightFactor: 0.70)
+            context.fill(whitePath, with: .linearGradient(
+                Gradient(colors: [Color(hex: "e8e8e0"), Color(hex: "fffff8"), Color(hex: "e8e8e0")]),
+                startPoint: CGPoint(x: 0, y: size.height / 2),
+                endPoint: CGPoint(x: size.width, y: size.height / 2)
+            ))
 
-                // Yellow stripe
-                var yellowStripe = Path()
-                yellowStripe.move(to: CGPoint(x: size.width * 0.28, y: envelopeCenterY))
-                yellowStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.08), control: CGPoint(x: size.width * 0.28, y: size.height * 0.14))
-                yellowStripe.addQuadCurve(to: CGPoint(x: size.width * 0.72, y: envelopeCenterY), control: CGPoint(x: size.width * 0.72, y: size.height * 0.14))
-                yellowStripe.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.70), control: CGPoint(x: size.width * 0.72, y: size.height * 0.60))
-                yellowStripe.addQuadCurve(to: CGPoint(x: size.width * 0.28, y: envelopeCenterY), control: CGPoint(x: size.width * 0.28, y: size.height * 0.60))
-                yellowStripe.closeSubpath()
-                context.fill(yellowStripe, with: .linearGradient(
-                    Gradient(colors: [Color(hex: "c4a44a"), Color(hex: "e8c860"), Color(hex: "c4a44a")]),
-                    startPoint: CGPoint(x: 0, y: envelopeCenterY),
-                    endPoint: CGPoint(x: size.width, y: envelopeCenterY)
-                ))
-
-                // White center with flame glow visible inside
-                var whiteCenter = Path()
-                whiteCenter.move(to: CGPoint(x: size.width * 0.38, y: envelopeCenterY))
-                whiteCenter.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.14), control: CGPoint(x: size.width * 0.38, y: size.height * 0.20))
-                whiteCenter.addQuadCurve(to: CGPoint(x: size.width * 0.62, y: envelopeCenterY), control: CGPoint(x: size.width * 0.62, y: size.height * 0.20))
-                whiteCenter.addQuadCurve(to: CGPoint(x: centerX, y: size.height * 0.64), control: CGPoint(x: size.width * 0.62, y: size.height * 0.55))
-                whiteCenter.addQuadCurve(to: CGPoint(x: size.width * 0.38, y: envelopeCenterY), control: CGPoint(x: size.width * 0.38, y: size.height * 0.55))
-                whiteCenter.closeSubpath()
-
-                // White center gradient - lighter when flame is active
-                let whiteCenterOpacity = 0.8 + Double(flameIntensity) * 0.2
-                context.fill(whiteCenter, with: .linearGradient(
-                    Gradient(colors: [
-                        Color(hex: "e8e8e0").opacity(whiteCenterOpacity),
-                        Color(hex: "fffff8").opacity(whiteCenterOpacity),
-                        Color(hex: "e8e8e0").opacity(whiteCenterOpacity)
-                    ]),
-                    startPoint: CGPoint(x: 0, y: envelopeCenterY),
-                    endPoint: CGPoint(x: size.width, y: envelopeCenterY)
-                ))
-
-                // Flame visible through center (during INHALE)
-                if flameIntensity > 0 {
-                    let flicker = CGFloat(0.8 + sin(timestamp / 50) * 0.2)
-                    let flameHeight = 40 * flicker * flameIntensity
-                    let flameWidth = 18 * flameIntensity
-
-                    // Outer flame glow
-                    let flameOuterPath = Path(ellipseIn: CGRect(
-                        x: centerX - flameWidth / 2 - 4,
-                        y: size.height * 0.38 - flameHeight / 2,
-                        width: flameWidth + 8,
-                        height: flameHeight + 10
-                    ))
-                    context.fill(flameOuterPath, with: .color(Color(hex: "ff6030").opacity(Double(flameIntensity) * 0.7)))
-
-                    // Middle flame
-                    let flameMidPath = Path(ellipseIn: CGRect(
-                        x: centerX - flameWidth / 2,
-                        y: size.height * 0.36 - flameHeight / 2 + 5,
-                        width: flameWidth,
-                        height: flameHeight
-                    ))
-                    context.fill(flameMidPath, with: .color(Color(hex: "ff9030").opacity(Double(flameIntensity) * 0.85)))
-
-                    // Inner flame (brightest)
-                    let flameInnerPath = Path(ellipseIn: CGRect(
-                        x: centerX - flameWidth / 4,
-                        y: size.height * 0.35 - flameHeight / 3,
-                        width: flameWidth / 2,
-                        height: flameHeight * 0.7
-                    ))
-                    context.fill(flameInnerPath, with: .color(Color(hex: "ffdc80").opacity(Double(flameIntensity) * 0.95)))
-                }
-
-                // Highlight on envelope (top-left)
-                let highlightPath = Path(ellipseIn: CGRect(
-                    x: size.width * 0.25,
-                    y: size.height * 0.12,
-                    width: size.width * 0.20,
-                    height: size.height * 0.25
-                ))
-                context.fill(highlightPath, with: .color(Color.white.opacity(0.25)))
-            }
-
-            // Bottom opening/mouth of the balloon
-            Ellipse()
-                .fill(Color(hex: "4a3020"))
-                .frame(width: 28, height: 12)
-                .offset(y: 65)
+            // Highlight on envelope (top-left)
+            let highlightPath = Path(ellipseIn: CGRect(
+                x: size.width * 0.22,
+                y: size.height * 0.08,
+                width: size.width * 0.22,
+                height: size.height * 0.28
+            ))
+            context.fill(highlightPath, with: .color(Color.white.opacity(0.3)))
         }
     }
 }
 
-// Ropes connecting envelope to basket
+// Burner frame with ropes and flame
+struct HotAirBalloonBurnerView: View {
+    let flameIntensity: CGFloat
+    let timestamp: TimeInterval
+
+    var body: some View {
+        Canvas { context, size in
+            let centerX = size.width / 2
+            let ropeColor = Color(hex: "6a5040")
+
+            // Left outer rope
+            var rope1 = Path()
+            rope1.move(to: CGPoint(x: centerX - 18, y: 0))
+            rope1.addLine(to: CGPoint(x: centerX - 22, y: size.height))
+            context.stroke(rope1, with: .color(ropeColor), lineWidth: 1.5)
+
+            // Left inner rope
+            var rope2 = Path()
+            rope2.move(to: CGPoint(x: centerX - 8, y: 0))
+            rope2.addLine(to: CGPoint(x: centerX - 10, y: size.height))
+            context.stroke(rope2, with: .color(ropeColor), lineWidth: 1.5)
+
+            // Right inner rope
+            var rope3 = Path()
+            rope3.move(to: CGPoint(x: centerX + 8, y: 0))
+            rope3.addLine(to: CGPoint(x: centerX + 10, y: size.height))
+            context.stroke(rope3, with: .color(ropeColor), lineWidth: 1.5)
+
+            // Right outer rope
+            var rope4 = Path()
+            rope4.move(to: CGPoint(x: centerX + 18, y: 0))
+            rope4.addLine(to: CGPoint(x: centerX + 22, y: size.height))
+            context.stroke(rope4, with: .color(ropeColor), lineWidth: 1.5)
+
+            // Burner frame (horizontal bar at top)
+            let burnerFrameColor = Color(hex: "5a4a3a")
+            let frameRect = CGRect(x: centerX - 20, y: 2, width: 40, height: 6)
+            context.fill(Path(roundedRect: frameRect, cornerRadius: 2), with: .color(burnerFrameColor))
+
+            // Flame (when active) - positioned in center of burner area
+            if flameIntensity > 0 {
+                let flicker = CGFloat(0.85 + sin(timestamp / 40) * 0.15)
+                let baseFlameHeight: CGFloat = 28
+                let flameHeight = baseFlameHeight * flicker * flameIntensity
+                let flameWidth: CGFloat = 14 * flameIntensity
+
+                let flameY = size.height * 0.25 // Position flame in upper portion of burner area
+
+                // Outer flame glow (red-orange)
+                let outerGlowPath = Path(ellipseIn: CGRect(
+                    x: centerX - flameWidth * 0.8,
+                    y: flameY - flameHeight * 0.3,
+                    width: flameWidth * 1.6,
+                    height: flameHeight * 1.2
+                ))
+                context.fill(outerGlowPath, with: .color(Color(hex: "ff4020").opacity(Double(flameIntensity) * 0.5)))
+
+                // Middle flame (orange)
+                let middleFlamePath = Path(ellipseIn: CGRect(
+                    x: centerX - flameWidth * 0.55,
+                    y: flameY - flameHeight * 0.15,
+                    width: flameWidth * 1.1,
+                    height: flameHeight * 0.9
+                ))
+                context.fill(middleFlamePath, with: .color(Color(hex: "ff8030").opacity(Double(flameIntensity) * 0.8)))
+
+                // Inner flame (yellow-white, brightest)
+                let innerFlamePath = Path(ellipseIn: CGRect(
+                    x: centerX - flameWidth * 0.3,
+                    y: flameY,
+                    width: flameWidth * 0.6,
+                    height: flameHeight * 0.6
+                ))
+                context.fill(innerFlamePath, with: .color(Color(hex: "ffdd60").opacity(Double(flameIntensity) * 0.95)))
+
+                // Core (white hot)
+                let corePath = Path(ellipseIn: CGRect(
+                    x: centerX - flameWidth * 0.15,
+                    y: flameY + flameHeight * 0.15,
+                    width: flameWidth * 0.3,
+                    height: flameHeight * 0.35
+                ))
+                context.fill(corePath, with: .color(Color(hex: "ffffee").opacity(Double(flameIntensity) * 0.9)))
+            }
+        }
+    }
+}
+
+// Ropes connecting envelope to basket (simple version without flame)
 struct HotAirBalloonRopesView: View {
     var body: some View {
         Canvas { context, size in
