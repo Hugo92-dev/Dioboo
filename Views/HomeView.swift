@@ -11,6 +11,8 @@ import Combine
 struct HomeView: View {
     let onBegin: () -> Void
 
+    @EnvironmentObject var appState: AppState
+
     @State private var contentOpacity: Double = 0
     @State private var contentOffset: CGFloat = 10
 
@@ -70,6 +72,40 @@ struct HomeView: View {
             .padding(.horizontal, 28)
             .opacity(contentOpacity)
             .offset(y: contentOffset)
+
+            // DEBUG: Premium toggle button (only visible in debug builds)
+            #if DEBUG
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        appState.isPremium.toggle()
+                    }) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(appState.isPremium ? Color.green : Color.red)
+                                .frame(width: 8, height: 8)
+                            Text(appState.isPremium ? "PRO" : "FREE")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        }
+                        .foregroundColor(Color(hex: "B8C0E6"))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "1a1a2e").opacity(0.8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: "86A6FF").opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.top, 60)
+                }
+                Spacer()
+            }
+            #endif
         }
         .onAppear {
             // Animation matches HTML: fadeIn 0.8s ease
@@ -83,4 +119,5 @@ struct HomeView: View {
 
 #Preview {
     HomeView(onBegin: {})
+        .environmentObject(AppState())
 }
