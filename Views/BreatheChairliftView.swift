@@ -397,119 +397,101 @@ struct ChairliftForestLayer: View {
     let offset: CGFloat
     let screenHeight: CGFloat
 
-    // Row configs - forest only in bottom 45% of screen (below mountains)
-    // In HTML: mountains end around 55% from top, forest starts there
-    // Row Y positions are from BOTTOM of screen
-    // We clip the forest to only show below mountains
-    private let rowConfigs: [(bottomRatio: CGFloat, scale: CGFloat, colors: [String], count: Int, spacing: CGFloat, parallax: CGFloat)] = [
-        (0.36, 0.6, ["3CB371", "2E8B57", "228B22", "32CD32"], 80, 16, 0.5),
-        (0.27, 0.72, ["3CB371", "2E8B57", "228B22", "32CD32"], 75, 18, 0.6),
-        (0.18, 0.85, ["006400", "008000", "1A6B1A", "228B22"], 70, 20, 0.75),
-        (0.08, 1.0, ["006400", "008000", "1A6B1A", "228B22"], 65, 22, 0.9),
-        (-0.03, 1.15, ["006400", "008000", "1A6B1A", "228B22"], 60, 25, 1.0)
-    ]
-
     var body: some View {
         GeometryReader { geo in
-            // Forest is clipped to only show in bottom 50% of screen
-            // This prevents trees from appearing on the mountains
-            let forestTopY = geo.size.height * 0.55 // Mountains end around 55%
+            // Forest starts at 55% from top (where mountains end)
+            let forestStartY = geo.size.height * 0.55
+            let forestHeight = geo.size.height - forestStartY
 
-            ZStack {
-                ForEach(0..<rowConfigs.count, id: \.self) { i in
-                    let config = rowConfigs[i]
-                    // Calculate Y position: bottomRatio is from bottom
-                    // y = height * (1 - bottomRatio)
-                    let rowY = geo.size.height * (1 - config.bottomRatio)
+            Canvas { context, size in
+                // Draw forest only in the bottom portion (below mountains)
+                // Multiple rows with parallax effect
+                let rowConfigs: [(yRatio: CGFloat, scale: CGFloat, colors: [Color], spacing: CGFloat, parallax: CGFloat)] = [
+                    // Back rows (smaller, lighter green, slower parallax)
+                    (0.08, 0.55, [Color(hex: "3CB371"), Color(hex: "2E8B57"), Color(hex: "32CD32")], 14, 0.3),
+                    (0.18, 0.65, [Color(hex: "3CB371"), Color(hex: "2E8B57"), Color(hex: "228B22")], 15, 0.4),
+                    (0.30, 0.75, [Color(hex: "2E8B57"), Color(hex: "228B22"), Color(hex: "32CD32")], 16, 0.5),
+                    // Middle rows
+                    (0.44, 0.85, [Color(hex: "228B22"), Color(hex: "006400"), Color(hex: "008000")], 18, 0.65),
+                    (0.58, 0.95, [Color(hex: "006400"), Color(hex: "008000"), Color(hex: "1A6B1A")], 20, 0.75),
+                    // Front rows (larger, darker green, faster parallax)
+                    (0.74, 1.05, [Color(hex: "006400"), Color(hex: "005000"), Color(hex: "004000")], 22, 0.85),
+                    (0.90, 1.15, [Color(hex: "005500"), Color(hex: "004400"), Color(hex: "003300")], 25, 1.0)
+                ]
 
-                    ChairliftTreeRow(
-                        treeCount: config.count,
-                        scale: config.scale,
-                        colors: config.colors.map { Color(hex: $0) },
-                        spacing: config.spacing,
-                        offset: offset * config.parallax,
-                        screenWidth: geo.size.width
-                    )
-                    .position(x: geo.size.width / 2, y: rowY)
-                }
-            }
-            .clipShape(
-                Rectangle()
-                    .offset(y: forestTopY)
-            )
-            .mask(
-                VStack(spacing: 0) {
-                    Color.clear.frame(height: forestTopY)
-                    Color.white
-                }
-            )
-        }
-    }
-}
+                for (rowIndex, config) in rowConfigs.enumerated() {
+                    let rowY = forestStartY + forestHeight * config.yRatio
+                    let rowOffset = offset * config.parallax
 
-struct ChairliftTreeRow: View {
-    let treeCount: Int
-    let scale: CGFloat
-    let colors: [Color]
-    let spacing: CGFloat
-    let offset: CGFloat
-    let screenWidth: CGFloat
+                    // Calculate how many trees we need to fill the screen plus extra for scrolling
+                    let treeBaseWidth = config.spacing
+                    let numTrees = Int(size.width * 3 / treeBaseWidth) + 10
 
-    @State private var treeSeeds: [UInt64] = []
+                    for i in 0..<numTrees {
+                        // Use deterministic seed based on row and tree index
+                        let seed = UInt64(rowIndex * 10000 + i * 137 + 12345)
+                        var rng = ChairliftSeededRNG(seed: seed)
 
-    var body: some View {
-        Canvas { context, size in
-            let totalWidth = CGFloat(treeCount) * (spacing + 20 * scale)
-            let wrappedOffset = offset.truncatingRemainder(dividingBy: totalWidth)
+                        // Tree position with slight random variation
+                        let baseX = CGFloat(i) * treeBaseWidth
+                        let xVariation = rng.nextCGFloat() * treeBaseWidth * 0.4 - treeBaseWidth * 0.2
+                        var x = baseX + xVariation - rowOffset
 
-            for i in 0..<treeCount {
-                let seed = i < treeSeeds.count ? treeSeeds[i] : UInt64(i)
-                var rng = SeededRandomNumberGenerator(seed: seed)
+                        // Wrap around for infinite scrolling
+                        let totalWidth = CGFloat(numTrees) * treeBaseWidth
+                        while x < -treeBaseWidth * 2 {
+                            x += totalWidth
+                        }
+                        while x > size.width + treeBaseWidth * 2 {
+                            x -= totalWidth
+                        }
 
-                let baseX = CGFloat(i) * (spacing * (0.6 + CGFloat.random(in: 0...0.8, using: &rng)))
-                let x = baseX - wrappedOffset
+                        // Tree height with variation
+                        let baseHeight = (35 + rng.nextCGFloat() * 25) * config.scale
+                        let treeWidth = baseHeight * 0.55
 
-                // Skip if off screen
-                if x < -50 || x > screenWidth + 50 { continue }
+                        // Pick color deterministically
+                        let colorIndex = Int(rng.nextCGFloat() * CGFloat(config.colors.count)) % config.colors.count
+                        let treeColor = config.colors[colorIndex]
 
-                let baseH = (40 + CGFloat.random(in: 0...40, using: &rng)) * scale
-                let treeWidth = baseH * 0.6
-                let colorIndex = Int.random(in: 0..<colors.count, using: &rng)
+                        // Draw tree (3 layered triangles)
+                        for layer in 0..<3 {
+                            let layerScale = 1.0 - CGFloat(layer) * 0.15
+                            let layerWidth = treeWidth * layerScale
+                            let layerHeight = baseHeight * 0.4
+                            let layerY = rowY - CGFloat(layer) * layerHeight * 0.4
 
-                // Draw 3 triangle layers
-                for j in 0..<3 {
-                    let layerW = treeWidth * (1 - CGFloat(j) * 0.12)
-                    let layerH = baseH * 0.45
-                    let yOffset = CGFloat(j) * (-layerH * 0.35)
+                            var treePath = Path()
+                            treePath.move(to: CGPoint(x: x, y: layerY - layerHeight))
+                            treePath.addLine(to: CGPoint(x: x - layerWidth / 2, y: layerY))
+                            treePath.addLine(to: CGPoint(x: x + layerWidth / 2, y: layerY))
+                            treePath.closeSubpath()
 
-                    let path = Path { p in
-                        p.move(to: CGPoint(x: x, y: size.height / 2 - yOffset - layerH))
-                        p.addLine(to: CGPoint(x: x - layerW / 2, y: size.height / 2 - yOffset))
-                        p.addLine(to: CGPoint(x: x + layerW / 2, y: size.height / 2 - yOffset))
-                        p.closeSubpath()
+                            context.fill(treePath, with: .color(treeColor))
+                        }
                     }
-                    context.fill(path, with: .color(colors[colorIndex]))
                 }
             }
-        }
-        .onAppear {
-            // Generate stable random seeds for each tree
-            treeSeeds = (0..<treeCount).map { UInt64($0 * 12345 + 67890) }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
     }
 }
 
-// Seeded random number generator for stable tree generation
-struct SeededRandomNumberGenerator: RandomNumberGenerator {
+// Simple seeded random number generator for stable tree generation
+struct ChairliftSeededRNG {
     var state: UInt64
 
     init(seed: UInt64) {
-        state = seed
+        state = seed == 0 ? 1 : seed
     }
 
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
         return state
+    }
+
+    mutating func nextCGFloat() -> CGFloat {
+        return CGFloat(next() % 10000) / 10000.0
     }
 }
 
