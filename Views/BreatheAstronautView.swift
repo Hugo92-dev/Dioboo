@@ -13,124 +13,134 @@ struct BreatheAstronautView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var isInhaling: Bool = true
-    @State private var cycleProgress: CGFloat = 0
-    @State private var totalProgress: CGFloat = 0
-    @State private var remainingSeconds: Int = 0
-    @State private var animationTimer: Timer?
     @State private var startTime: Date?
     @State private var hasAppeared: Bool = false
+    @State private var hasCompleted: Bool = false
 
     private let cycleDuration: TimeInterval = 10.0
     private let floatDistance: CGFloat = 35
 
+    private var totalDuration: Double {
+        Double(duration) * 60.0
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Deep space background - radial gradient from bottom center
-                RadialGradient(
-                    colors: [
-                        Color(hex: "0a1228"),
-                        Color(hex: "050a14"),
-                        Color(hex: "020408"),
-                        Color.black
-                    ],
-                    center: UnitPoint(x: 0.5, y: 1.0),
-                    startRadius: 0,
-                    endRadius: geo.size.height
-                )
-                .ignoresSafeArea()
+        TimelineView(.animation) { timeline in
+            let elapsed = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+            let cycleProgress = elapsed.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+            let isInhaling = cycleProgress < 0.5
+            let totalProgress = min(1.0, elapsed / totalDuration)
+            let remainingSeconds = Int(ceil(max(0, totalDuration - elapsed)))
 
-                // Stars layer
-                AstronautStarsLayer(screenSize: geo.size)
+            GeometryReader { geo in
+                ZStack {
+                    // Deep space background - radial gradient from bottom center
+                    RadialGradient(
+                        colors: [
+                            Color(hex: "0a1228"),
+                            Color(hex: "050a14"),
+                            Color(hex: "020408"),
+                            Color.black
+                        ],
+                        center: UnitPoint(x: 0.5, y: 1.0),
+                        startRadius: 0,
+                        endRadius: geo.size.height
+                    )
+                    .ignoresSafeArea()
 
-                // Satellites
-                AstronautSatellitesLayer(screenSize: geo.size)
+                    // Stars layer
+                    AstronautStarsLayer(screenSize: geo.size)
 
-                // Shooting stars
-                AstronautShootingStarsLayer(screenSize: geo.size)
+                    // Satellites
+                    AstronautSatellitesLayer(screenSize: geo.size)
 
-                // Floating view (moon + earth) - moves with breath
-                AstronautFloatingView(
-                    cycleProgress: cycleProgress,
-                    floatDistance: floatDistance,
-                    screenSize: geo.size
-                )
+                    // Shooting stars
+                    AstronautShootingStarsLayer(screenSize: geo.size)
 
-                // UI Overlay
-                VStack(spacing: 0) {
-                    // Back button
-                    HStack {
-                        Button(action: onBack) {
-                            Circle()
-                                .fill(Color(hex: "0a1228").opacity(0.7))
-                                .frame(width: 42, height: 42)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color(hex: "6496FF").opacity(0.2), lineWidth: 1)
-                                )
-                                .overlay(
-                                    Image(systemName: "arrow.left")
-                                        .foregroundColor(Color(hex: "B8C0E6"))
-                                        .font(.system(size: 18, weight: .medium))
-                                )
-                        }
-                        .blur(radius: 0)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
+                    // Floating view (moon + earth) - moves with breath
+                    AstronautFloatingView(
+                        cycleProgress: cycleProgress,
+                        floatDistance: floatDistance,
+                        screenSize: geo.size
+                    )
 
-                    Spacer()
-
-                    // Phase text
-                    Text(isInhaling ? "INHALE" : "EXHALE")
-                        .font(.system(size: 22, weight: .regular))
-                        .foregroundColor(Color(hex: "F5F7FF"))
-                        .tracking(6)
-                        .opacity(0.95)
-                        .shadow(color: Color(hex: "64A0FF").opacity(0.4), radius: 12)
-                        .padding(.bottom, 32)
-
-                    // Timer text
-                    Text(formatTime(remainingSeconds))
-                        .font(.system(size: 15, weight: .light))
-                        .foregroundColor(Color(hex: "B8C0E6"))
-                        .padding(.bottom, 38)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color(hex: "283C64").opacity(0.4))
-                            .frame(height: 3)
-
-                        GeometryReader { progressGeo in
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(hex: "5090ff"), Color(hex: "70b0ff")],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                    // UI Overlay
+                    VStack(spacing: 0) {
+                        // Back button
+                        HStack {
+                            Button(action: onBack) {
+                                Circle()
+                                    .fill(Color(hex: "0a1228").opacity(0.7))
+                                    .frame(width: 42, height: 42)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color(hex: "6496FF").opacity(0.2), lineWidth: 1)
                                     )
-                                )
-                                .frame(width: progressGeo.size.width * totalProgress, height: 3)
+                                    .overlay(
+                                        Image(systemName: "arrow.left")
+                                            .foregroundColor(Color(hex: "B8C0E6"))
+                                            .font(.system(size: 18, weight: .medium))
+                                    )
+                            }
+                            .blur(radius: 0)
+                            Spacer()
                         }
-                        .frame(height: 3)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
+                        Spacer()
+
+                        // Phase text
+                        Text(isInhaling ? "INHALE" : "EXHALE")
+                            .font(.system(size: 22, weight: .regular))
+                            .foregroundColor(Color(hex: "F5F7FF"))
+                            .tracking(6)
+                            .opacity(0.95)
+                            .shadow(color: Color(hex: "64A0FF").opacity(0.4), radius: 12)
+                            .padding(.bottom, 32)
+
+                        // Timer text
+                        Text(formatTime(remainingSeconds))
+                            .font(.system(size: 15, weight: .light))
+                            .foregroundColor(Color(hex: "B8C0E6"))
+                            .padding(.bottom, 38)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(hex: "283C64").opacity(0.4))
+                                .frame(height: 3)
+
+                            GeometryReader { progressGeo in
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color(hex: "5090ff"), Color(hex: "70b0ff")],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: progressGeo.size.width * totalProgress, height: 3)
+                            }
+                            .frame(height: 3)
+                        }
+                        .padding(.horizontal, 45)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 45)
-                    .padding(.bottom, 50)
+                }
+                .opacity(hasAppeared ? 1 : 0)
+                .animation(.easeIn(duration: 1).delay(0.3), value: hasAppeared)
+            }
+            .onChange(of: elapsed >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
-            .opacity(hasAppeared ? 1 : 0)
-            .animation(.easeIn(duration: 1).delay(0.3), value: hasAppeared)
         }
         .onAppear {
             hasAppeared = true
-            remainingSeconds = duration * 60
-            startAnimation()
-        }
-        .onDisappear {
-            animationTimer?.invalidate()
+            startTime = Date()
         }
     }
 
@@ -138,34 +148,6 @@ struct BreatheAstronautView: View {
         let mins = seconds / 60
         let secs = seconds % 60
         return "\(mins):\(String(format: "%02d", secs))"
-    }
-
-    private func startAnimation() {
-        startTime = Date()
-        let totalDuration = Double(duration) * 60.0
-
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { _ in
-            guard let start = startTime else { return }
-            let elapsed = Date().timeIntervalSince(start)
-
-            // Check completion
-            if elapsed >= totalDuration {
-                animationTimer?.invalidate()
-                onComplete()
-                return
-            }
-
-            // Update remaining time
-            remainingSeconds = Int(ceil(totalDuration - elapsed))
-
-            // Update total progress
-            totalProgress = min(1.0, elapsed / totalDuration)
-
-            // Update cycle progress (10 second cycle)
-            let progress = (elapsed.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
-            cycleProgress = progress
-            isInhaling = progress < 0.5
-        }
     }
 }
 
