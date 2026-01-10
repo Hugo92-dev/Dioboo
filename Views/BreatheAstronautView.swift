@@ -458,10 +458,13 @@ struct AstronautFloatingView: View {
             AstronautMoonView()
                 .position(x: screenSize.width - 35 - 11, y: 70 + 11) // -11 because moon is 22x22
 
-            // Earth - positioned at bottom: -50px, centered, 560x560
+            // Earth - large and prominent in lower portion of screen
+            // In HTML, Earth takes up ~50% of screen, center at ~80% down
+            // This creates the immersive "astronaut viewing Earth" experience
+            let earthSize: CGFloat = min(screenSize.width * 1.4, 600)
             AstronautEarthView()
-                .frame(width: 560, height: 560)
-                .position(x: screenSize.width / 2, y: screenSize.height + 50 + 280 - 50) // -50 bottom offset, +280 half height
+                .frame(width: earthSize, height: earthSize)
+                .position(x: screenSize.width / 2, y: screenSize.height * 0.78)
         }
         .offset(y: floatOffset)
     }
@@ -508,123 +511,129 @@ struct AstronautMoonView: View {
 
 struct AstronautEarthView: View {
     var body: some View {
-        ZStack {
-            // Atmosphere glow - extends 20px beyond earth
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.clear,
-                            Color.clear,
-                            Color(hex: "64B4FF").opacity(0.1),
-                            Color(hex: "5096FF").opacity(0.05),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 260,
-                        endRadius: 300
-                    )
-                )
-                .frame(width: 600, height: 600)
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let scale = size / 560 // Base scale factor
 
-            // Earth sphere
             ZStack {
-                // Ocean base color
-                Circle()
-                    .fill(Color(hex: "1a6090"))
-
-                // Ocean gradient overlay
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: "2285b8"),
-                                Color(hex: "1a70a0"),
-                                Color(hex: "155a88"),
-                                Color(hex: "0d4060")
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                // Ocean radial highlights
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color(hex: "2890c8"), Color.clear],
-                            center: UnitPoint(x: 0.25, y: 0.25),
-                            startRadius: 0,
-                            endRadius: 112
-                        )
-                    )
-
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color(hex: "1a70a0"), Color.clear],
-                            center: UnitPoint(x: 0.70, y: 0.60),
-                            startRadius: 0,
-                            endRadius: 98
-                        )
-                    )
-
-                // Continents SVG paths
-                AstronautContinentsView()
-
-                // Clouds
-                AstronautCloudsView()
-
-                // Sun light effect (top-left)
+                // Atmosphere glow - extends beyond earth
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.white.opacity(0.3),
-                                Color(hex: "C8E6FF").opacity(0.18),
-                                Color(hex: "96C8FF").opacity(0.08),
+                                Color.clear,
+                                Color.clear,
+                                Color(hex: "64B4FF").opacity(0.15),
+                                Color(hex: "5096FF").opacity(0.08),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 0,
-                            endRadius: 140
+                            startRadius: size * 0.42,
+                            endRadius: size * 0.52
                         )
                     )
-                    .frame(width: 280, height: 280)
-                    .offset(x: -280 * 0.12 - 140, y: 280 * 0.05 - 140) // left: -12%, top: 5%
+                    .frame(width: size * 1.1, height: size * 1.1)
 
-                // Sphere shading - highlight
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.white.opacity(0.15), Color.clear],
-                            center: UnitPoint(x: 0.30, y: 0.25),
-                            startRadius: 0,
-                            endRadius: 98
+                // Earth sphere
+                ZStack {
+                    // Ocean base color
+                    Circle()
+                        .fill(Color(hex: "1a6090"))
+
+                    // Ocean gradient overlay
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(hex: "2285b8"),
+                                    Color(hex: "1a70a0"),
+                                    Color(hex: "155a88"),
+                                    Color(hex: "0d4060")
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
 
-                // Sphere shading - shadow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.black.opacity(0.5), Color.clear],
-                            center: UnitPoint(x: 0.75, y: 0.75),
-                            startRadius: 0,
-                            endRadius: 126
+                    // Ocean radial highlights
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: "2890c8"), Color.clear],
+                                center: UnitPoint(x: 0.25, y: 0.25),
+                                startRadius: 0,
+                                endRadius: 112 * scale
+                            )
                         )
-                    )
 
-                // Night overlay (right half)
-                AstronautNightOverlay()
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: "1a70a0"), Color.clear],
+                                center: UnitPoint(x: 0.70, y: 0.60),
+                                startRadius: 0,
+                                endRadius: 98 * scale
+                            )
+                        )
 
-                // City lights on night side
-                AstronautCityLightsView()
+                    // Continents SVG paths
+                    AstronautContinentsView()
+
+                    // Clouds
+                    AstronautCloudsView()
+
+                    // Sun light effect (top-left)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white.opacity(0.3),
+                                    Color(hex: "C8E6FF").opacity(0.18),
+                                    Color(hex: "96C8FF").opacity(0.08),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 140 * scale
+                            )
+                        )
+                        .frame(width: 280 * scale, height: 280 * scale)
+                        .offset(x: -size * 0.32, y: -size * 0.22)
+
+                    // Sphere shading - highlight
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.white.opacity(0.15), Color.clear],
+                                center: UnitPoint(x: 0.30, y: 0.25),
+                                startRadius: 0,
+                                endRadius: 98 * scale
+                            )
+                        )
+
+                    // Sphere shading - shadow
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.black.opacity(0.5), Color.clear],
+                                center: UnitPoint(x: 0.75, y: 0.75),
+                                startRadius: 0,
+                                endRadius: 126 * scale
+                            )
+                        )
+
+                    // Night overlay (right half)
+                    AstronautNightOverlay()
+
+                    // City lights on night side
+                    AstronautCityLightsView()
+                }
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+                .shadow(color: Color(hex: "4696FF").opacity(0.25), radius: 35)
+                .shadow(color: Color(hex: "3278FF").opacity(0.15), radius: 70)
             }
-            .frame(width: 560, height: 560)
-            .clipShape(Circle())
-            .shadow(color: Color(hex: "4696FF").opacity(0.2), radius: 30)
-            .shadow(color: Color(hex: "3278FF").opacity(0.1), radius: 60)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
     }
 }
