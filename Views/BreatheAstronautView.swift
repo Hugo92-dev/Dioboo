@@ -675,17 +675,10 @@ struct AstronautContinentsView: View {
         Canvas { context, size in
             let scale = size.width / 100
 
-            // Define gradient colors
-            let forestGreen1 = Color(hex: "3d9960")
+            // Define colors for continents
             let forestGreen2 = Color(hex: "2d7a48")
-            let forestGreen3 = Color(hex: "1d5a30")
-
-            let desertTan1 = Color(hex: "d4b896")
             let desertTan2 = Color(hex: "c4a878")
-            let desertTan3 = Color(hex: "a08858")
-
             let iceWhite1 = Color(hex: "f0f4f8")
-            let iceWhite2 = Color(hex: "d0dce8")
 
             // Helper to draw with forest gradient
             func drawForest(_ path: Path) {
