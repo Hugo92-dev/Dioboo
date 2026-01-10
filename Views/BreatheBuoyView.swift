@@ -149,7 +149,8 @@ struct BreatheBuoyView: View {
             withAnimation(.easeIn(duration: 1.0).delay(0.3)) {
                 sceneOpacity = 1
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 startTime = Date()
             }
         }

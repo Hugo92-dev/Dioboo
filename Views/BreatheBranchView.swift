@@ -117,13 +117,15 @@ struct BreatheBranchView: View {
         }
         .onAppear {
             // Fade in animation matching HTML (1s ease with 0.3s delay)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 withAnimation(.easeInOut(duration: 1.0)) {
                     sceneOpacity = 1
                 }
             }
             // Start breath animation after 1.2s
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 startTime = Date()
             }
         }

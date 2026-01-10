@@ -405,7 +405,8 @@ struct AstronautShootingStarsLayer: View {
         withAnimation(.easeOut(duration: 0.5)) {
             shoot1Offset = 90
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
             shoot1Visible = false
         }
     }
@@ -416,7 +417,8 @@ struct AstronautShootingStarsLayer: View {
         withAnimation(.easeOut(duration: 0.4)) {
             shoot2Offset = 70
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
             shoot2Visible = false
         }
     }

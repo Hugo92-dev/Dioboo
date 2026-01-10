@@ -162,13 +162,15 @@ struct BreatheSeagullView: View {
         }
         .onAppear {
             // Fade in animation matching HTML (0.3s delay, 1s fade)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 withAnimation(.easeOut(duration: 1.0)) {
                     isSceneVisible = true
                 }
             }
             // Start animation after 1.2s (matching HTML setTimeout)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 startTime = Date()
             }
         }

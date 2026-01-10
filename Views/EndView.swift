@@ -97,7 +97,8 @@ struct EndView: View {
 
     private func startDarkeningEffect() {
         // Start darkening after 6 seconds, complete over 10 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
             withAnimation(.easeIn(duration: 10)) {
                 overlayOpacity = 0.7
             }

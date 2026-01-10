@@ -410,12 +410,14 @@ struct FerrisCloudsView: View {
             withAnimation(.linear(duration: 120).repeatForever(autoreverses: false)) {
                 cloud1Offset = 600
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)
                 withAnimation(.linear(duration: 150).repeatForever(autoreverses: false)) {
                     cloud2Offset = 600
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000)
                 withAnimation(.linear(duration: 100).repeatForever(autoreverses: false)) {
                     cloud3Offset = 600
                 }

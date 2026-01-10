@@ -146,13 +146,15 @@ struct BreatheHotairballoonView: View {
         }
         .onAppear {
             // Fade in animation matching HTML (1s ease, 0.3s delay)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 withAnimation(.easeOut(duration: 1.0)) {
                     sceneOpacity = 1.0
                 }
             }
             // Start breathing animation after 1.2s (matching HTML)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 startTime = Date()
             }
         }

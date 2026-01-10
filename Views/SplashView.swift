@@ -61,14 +61,16 @@ struct SplashView: View {
         }
 
         // Fade out container: 2.6s → 3.4s
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
             withAnimation(.easeIn(duration: 0.8)) {
                 containerOpacity = 0
             }
         }
 
         // Navigate to next screen: 3.4s
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.4) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_400_000_000)
             onComplete()
         }
     }
