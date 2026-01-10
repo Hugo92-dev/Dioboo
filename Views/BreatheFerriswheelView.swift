@@ -1023,10 +1023,12 @@ struct FerrisCapsuleAnimatedView: View {
     let screenWidth: CGFloat
     let screenHeight: CGFloat
 
-    // Wheel visual radius is 130, but capsule positioning needs offset
-    // because connector is 16px above capsule center (at y=4 in 40px tall view)
-    // Using smaller radius keeps connector ON the wheel rim
-    private let wheelRadius: CGFloat = 118
+    // The wheel rim is at radius 130 (matching FerrisWheelView)
+    private let wheelRimRadius: CGFloat = 130
+    // The connector circle center is 16px above the capsule view center
+    // (connector at y=4 in 40px tall canvas, center at y=20, offset = 20-4 = 16)
+    private let connectorOffset: CGFloat = 16
+
     private var wheelCenterX: CGFloat { screenWidth / 2 }
     private var wheelCenterY: CGFloat { screenHeight * 0.60 }
 
@@ -1054,10 +1056,15 @@ struct FerrisCapsuleAnimatedView: View {
 
     var body: some View {
         let angleRad = capsuleAngleDegrees * .pi / 180
-        // In SwiftUI coordinate system, Y increases downward
-        // cos for X, sin for Y (but we need to negate sin because our angles are standard math angles)
-        let capsuleX = wheelCenterX + cos(angleRad) * wheelRadius
-        let capsuleY = wheelCenterY + sin(angleRad) * wheelRadius
+
+        // Calculate the point on the rim where the connector should be attached
+        let rimX = wheelCenterX + cos(angleRad) * wheelRimRadius
+        let rimY = wheelCenterY + sin(angleRad) * wheelRimRadius
+
+        // Position the capsule so its connector (16px above view center) lands on the rim
+        // The capsule hangs below the connector point
+        let capsuleX = rimX
+        let capsuleY = rimY + connectorOffset
 
         // Reflection in water
         let waterTop = screenHeight * 0.82
