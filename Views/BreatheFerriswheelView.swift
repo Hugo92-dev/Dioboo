@@ -1023,7 +1023,10 @@ struct FerrisCapsuleAnimatedView: View {
     let screenWidth: CGFloat
     let screenHeight: CGFloat
 
-    private let wheelRadius: CGFloat = 130
+    // Wheel visual radius is 130, but capsule positioning needs offset
+    // because connector is 16px above capsule center (at y=4 in 40px tall view)
+    // Using smaller radius keeps connector ON the wheel rim
+    private let wheelRadius: CGFloat = 118
     private var wheelCenterX: CGFloat { screenWidth / 2 }
     private var wheelCenterY: CGFloat { screenHeight * 0.60 }
 
