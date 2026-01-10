@@ -39,9 +39,15 @@ struct BreatheGlidingbirdView: View {
                 // Cactus layer
                 CactusLayerView(width: width, height: height, elapsedTime: elapsedTime)
 
-                // Gliding bird - positioned at left 30%, top 50%
-                GlidingBirdView(elapsedTime: elapsedTime, cycleDuration: cycleDuration, screenHeight: height)
-                    .position(x: width * 0.30, y: height * 0.50)
+                // Gliding bird - positioned at left 30%, animated vertically
+                // Bird rises during inhale, descends during exhale
+                let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+                let flightPhase = cos(cycleProgress * .pi * 2)
+                let birdYOffset = flightPhase * height * 0.18
+
+                GlidingBirdView(elapsedTime: elapsedTime, cycleDuration: cycleDuration)
+                    .frame(width: 80, height: 50)
+                    .position(x: width * 0.30, y: height * 0.35 + birdYOffset)
 
                 // UI Layer
                 VStack {
@@ -197,15 +203,19 @@ struct SunView: View {
 }
 
 // MARK: - Desert Floor View
-// Matches HTML: 18% height, gradient #d89060 -> #c88050 -> #b87040
+// Desert ground that extends to bottom of screen
 
 struct DesertFloorView: View {
     let width: CGFloat
     let height: CGFloat
 
+    // Desert starts at 70% from top (covers bottom 30% of screen)
+    private var desertTopY: CGFloat { height * 0.70 }
+    private var desertHeight: CGFloat { height * 0.30 }
+
     var body: some View {
         ZStack {
-            // Main desert floor
+            // Main desert floor - covers bottom 30% of screen
             Rectangle()
                 .fill(
                     LinearGradient(
@@ -218,8 +228,8 @@ struct DesertFloorView: View {
                         endPoint: .bottom
                     )
                 )
-                .frame(width: width, height: height * 0.18)
-                .position(x: width / 2, y: height - (height * 0.18) / 2)
+                .frame(width: width, height: desertHeight)
+                .position(x: width / 2, y: desertTopY + desertHeight / 2)
 
             // Desert texture dots
             Canvas { context, size in
@@ -254,6 +264,9 @@ struct HorsesLayerView: View {
     let height: CGFloat
     let elapsedTime: Double
 
+    // Horses run on the desert floor (at 70% from top)
+    private var desertTopY: CGFloat { height * 0.70 }
+
     var body: some View {
         // Group 1 - closer horses (animation: 20s)
         let group1Progress = elapsedTime.truncatingRemainder(dividingBy: 20) / 20
@@ -261,7 +274,7 @@ struct HorsesLayerView: View {
         let group2Progress = (elapsedTime + 5).truncatingRemainder(dividingBy: 25) / 25
 
         ZStack {
-            // Group 1 - 3 horses, closer
+            // Group 1 - 3 horses, closer (on desert floor)
             HStack(spacing: 15) {
                 HorseShape(bodyColor: Color(red: 0.290, green: 0.188, blue: 0.125), legColor: Color(red: 0.227, green: 0.145, blue: 0.082), tailColor: Color(red: 0.165, green: 0.102, blue: 0.039), elapsedTime: elapsedTime, legDelay: 0)
                     .frame(width: 25, height: 18)
@@ -271,7 +284,7 @@ struct HorsesLayerView: View {
                     .frame(width: 25, height: 18)
             }
             .opacity(0.7)
-            .position(x: -150 + (width + 150) * group1Progress * 1.1, y: height * 0.84 - 5)
+            .position(x: -150 + (width + 150) * group1Progress * 1.1, y: desertTopY + 5)
 
             // Group 2 - 2 horses, farther (smaller, more transparent)
             HStack(spacing: 12) {
@@ -282,7 +295,7 @@ struct HorsesLayerView: View {
             }
             .opacity(0.35)
             .scaleEffect(0.7)
-            .position(x: -250 + (width + 250) * group2Progress * 1.2, y: height * 0.84 - 15)
+            .position(x: -250 + (width + 250) * group2Progress * 1.2, y: desertTopY - 5)
         }
     }
 }
@@ -370,6 +383,10 @@ struct CanyonLayerView: View {
     let height: CGFloat
     let elapsedTime: Double
 
+    // Canyon should be positioned ON the desert floor (starting at 70% of screen)
+    private var desertTopY: CGFloat { height * 0.70 }
+    private var desertHeight: CGFloat { height * 0.30 }
+
     var body: some View {
         let scrollProgress = elapsedTime.truncatingRemainder(dividingBy: 50) / 50
         let scrollOffset = scrollProgress * width
@@ -382,54 +399,34 @@ struct CanyonLayerView: View {
                 Color(red: 0.878, green: 0.533, blue: 0.314)   // #e08850
             ])
 
-            // Canyon formation definitions matching HTML
+            // Canyon formations - height is relative to desert area
             let formations: [(left: CGFloat, formationWidth: CGFloat, heightPercent: CGFloat, clipPath: [(CGFloat, CGFloat)])] = [
-                // canyon-bottom-1: left: 30px, width: 200px, height: 25%
-                (
-                    left: 30,
-                    formationWidth: 200,
-                    heightPercent: 0.25,
-                    clipPath: [(0, 1), (0, 0.5), (0.15, 0.35), (0.35, 0.45), (0.5, 0.2), (0.65, 0.4), (0.85, 0.25), (1, 0.35), (1, 1)]
-                ),
-                // canyon-bottom-2: left: 280px, width: 180px, height: 22%
-                (
-                    left: 280,
-                    formationWidth: 180,
-                    heightPercent: 0.22,
-                    clipPath: [(0, 1), (0, 0.4), (0.25, 0.25), (0.45, 0.35), (0.6, 0.15), (0.8, 0.3), (1, 0.2), (1, 1)]
-                ),
-                // canyon-bottom-3: left: 510px, width: 220px, height: 28%
-                (
-                    left: 510,
-                    formationWidth: 220,
-                    heightPercent: 0.28,
-                    clipPath: [(0, 1), (0, 0.35), (0.2, 0.45), (0.4, 0.2), (0.55, 0.35), (0.75, 0.15), (0.9, 0.3), (1, 0.25), (1, 1)]
-                ),
-                // canyon-bottom-4: left: 780px, width: 190px, height: 24%
-                (
-                    left: 780,
-                    formationWidth: 190,
-                    heightPercent: 0.24,
-                    clipPath: [(0, 1), (0, 0.3), (0.3, 0.4), (0.5, 0.15), (0.7, 0.35), (1, 0.2), (1, 1)]
-                )
+                (left: 30, formationWidth: 200, heightPercent: 0.50,
+                 clipPath: [(0, 1), (0, 0.5), (0.15, 0.35), (0.35, 0.45), (0.5, 0.2), (0.65, 0.4), (0.85, 0.25), (1, 0.35), (1, 1)]),
+                (left: 280, formationWidth: 180, heightPercent: 0.45,
+                 clipPath: [(0, 1), (0, 0.4), (0.25, 0.25), (0.45, 0.35), (0.6, 0.15), (0.8, 0.3), (1, 0.2), (1, 1)]),
+                (left: 510, formationWidth: 220, heightPercent: 0.55,
+                 clipPath: [(0, 1), (0, 0.35), (0.2, 0.45), (0.4, 0.2), (0.55, 0.35), (0.75, 0.15), (0.9, 0.3), (1, 0.25), (1, 1)]),
+                (left: 780, formationWidth: 190, heightPercent: 0.48,
+                 clipPath: [(0, 1), (0, 0.3), (0.3, 0.4), (0.5, 0.15), (0.7, 0.35), (1, 0.2), (1, 1)])
             ]
 
-            // Scale factor for HTML width (351px screen) to current width
-            // HTML uses 200% width for canyon layer, so total is 702px
             let htmlScreenWidth: CGFloat = 351
-            let scaleFactor = size.width / htmlScreenWidth
+            let scaleFactor = width / htmlScreenWidth
 
-            // Draw each formation twice for seamless scrolling
-            for offset in [0, size.width] {
+            // Draw formations on the desert area (bottom 30% of screen)
+            for offset in [0, width] {
                 for formation in formations {
                     let formationX = formation.left * scaleFactor - scrollOffset + offset
                     let formationW = formation.formationWidth * scaleFactor
-                    let formationH = size.height * formation.heightPercent
+                    // Height relative to desert area, not full screen
+                    let formationH = desertHeight * formation.heightPercent
 
                     var path = Path()
                     for (index, point) in formation.clipPath.enumerated() {
                         let px = formationX + formationW * point.0
-                        let py = size.height - formationH + formationH * point.1
+                        // Position from desert top, going down
+                        let py = desertTopY + (desertHeight - formationH) + formationH * point.1
 
                         if index == 0 {
                             path.move(to: CGPoint(x: px, y: py))
@@ -441,8 +438,8 @@ struct CanyonLayerView: View {
 
                     context.fill(path, with: .linearGradient(
                         canyonGradient,
-                        startPoint: CGPoint(x: formationX, y: size.height - formationH),
-                        endPoint: CGPoint(x: formationX, y: size.height)
+                        startPoint: CGPoint(x: formationX, y: desertTopY),
+                        endPoint: CGPoint(x: formationX, y: desertTopY + desertHeight)
                     ))
                 }
             }
@@ -459,49 +456,52 @@ struct CactusLayerView: View {
     let height: CGFloat
     let elapsedTime: Double
 
+    // Cactuses on the desert floor (starting at 70% from top)
+    private var desertTopY: CGFloat { height * 0.70 }
+
     var body: some View {
         let scrollProgress = elapsedTime.truncatingRemainder(dividingBy: 50) / 50
         let scrollOffset = scrollProgress * width
 
         ZStack {
-            // Cactus 1: left: 8%, bottom: 20%
+            // Cactus 1: on desert, rooted at horizon
             CactusShape(variant: 1)
                 .frame(width: 35, height: 70)
                 .position(
                     x: calculateCactusX(basePercent: 0.08, scrollOffset: scrollOffset, width: width),
-                    y: height * 0.80
+                    y: desertTopY - 5
                 )
 
-            // Cactus 2: left: 25%, bottom: 22%
+            // Cactus 2
             CactusShape(variant: 2)
                 .frame(width: 30, height: 60)
                 .position(
                     x: calculateCactusX(basePercent: 0.25, scrollOffset: scrollOffset, width: width),
-                    y: height * 0.78
+                    y: desertTopY - 2
                 )
 
-            // Cactus 3: left: 45%, bottom: 18%
+            // Cactus 3
             CactusShape(variant: 3)
                 .frame(width: 38, height: 75)
                 .position(
                     x: calculateCactusX(basePercent: 0.45, scrollOffset: scrollOffset, width: width),
-                    y: height * 0.82
+                    y: desertTopY - 8
                 )
 
-            // Cactus 4: left: 62%, bottom: 24%
+            // Cactus 4
             CactusShape(variant: 4)
                 .frame(width: 28, height: 55)
                 .position(
                     x: calculateCactusX(basePercent: 0.62, scrollOffset: scrollOffset, width: width),
-                    y: height * 0.76
+                    y: desertTopY
                 )
 
-            // Cactus 5: left: 80%, bottom: 19%
+            // Cactus 5
             CactusShape(variant: 5)
                 .frame(width: 32, height: 65)
                 .position(
                     x: calculateCactusX(basePercent: 0.80, scrollOffset: scrollOffset, width: width),
-                    y: height * 0.81
+                    y: desertTopY - 3
                 )
         }
     }
@@ -631,18 +631,12 @@ struct CactusShape: View {
 struct GlidingBirdView: View {
     let elapsedTime: Double
     let cycleDuration: Double
-    let screenHeight: CGFloat
 
     var body: some View {
         let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
 
         // Flight phase: cos for smooth motion
-        // Inhale (first half): bird rises
-        // Exhale (second half): bird descends
         let flightPhase = cos(cycleProgress * .pi * 2)
-
-        // Vertical position - center is 50%, range +/-18%
-        let birdYOffset = flightPhase * screenHeight * 0.18
 
         // Subtle tilt - nose up when rising, nose down when descending
         let birdTilt = -flightPhase * 8
@@ -655,8 +649,8 @@ struct GlidingBirdView: View {
         let wingStretch = 1 + sin(elapsedTime / 1.2) * 0.05
 
         Canvas { context, size in
-            // Save the original state
-            context.translateBy(x: size.width / 2, y: size.height / 2 + birdYOffset)
+            // Apply tilt and sway transformations
+            context.translateBy(x: size.width / 2, y: size.height / 2)
             context.rotate(by: Angle(degrees: birdTilt))
             context.translateBy(x: -size.width / 2 + sway, y: -size.height / 2)
 
@@ -759,7 +753,6 @@ struct GlidingBirdView: View {
             ))
             context.fill(eyePath, with: .color(Color(red: 0.102, green: 0.102, blue: 0.102)))  // #1a1a1a
         }
-        .frame(width: 80, height: 50)
     }
 }
 
