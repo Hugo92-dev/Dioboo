@@ -203,19 +203,20 @@ struct SunView: View {
 }
 
 // MARK: - Desert Floor View
-// Desert ground that extends to bottom of screen
+// Desert ground that extends to absolute bottom of screen (including safe area)
 
 struct DesertFloorView: View {
     let width: CGFloat
     let height: CGFloat
 
-    // Desert starts at 70% from top (covers bottom 30% of screen)
+    // Desert starts at 70% from top
     private var desertTopY: CGFloat { height * 0.70 }
-    private var desertHeight: CGFloat { height * 0.30 }
+    // Desert height extended to cover safe area (add extra 15% to ensure full coverage)
+    private var desertHeight: CGFloat { height * 0.45 }
 
     var body: some View {
         ZStack {
-            // Main desert floor - covers bottom 30% of screen
+            // Main desert floor - covers from 70% to beyond bottom (including safe area)
             Rectangle()
                 .fill(
                     LinearGradient(
@@ -228,15 +229,15 @@ struct DesertFloorView: View {
                         endPoint: .bottom
                     )
                 )
-                .frame(width: width, height: desertHeight)
+                .frame(width: width * 1.1, height: desertHeight)
                 .position(x: width / 2, y: desertTopY + desertHeight / 2)
 
             // Desert texture dots
             Canvas { context, size in
                 let texturePoints: [(CGFloat, CGFloat, CGFloat)] = [
-                    (0.2, 0.80, 2), (0.6, 0.70, 3), (0.8, 0.90, 2),
-                    (0.15, 0.75, 2), (0.45, 0.85, 3), (0.75, 0.78, 2),
-                    (0.35, 0.92, 2), (0.55, 0.88, 2), (0.9, 0.82, 3)
+                    (0.2, 0.73, 2), (0.6, 0.75, 3), (0.8, 0.78, 2),
+                    (0.15, 0.76, 2), (0.45, 0.80, 3), (0.75, 0.74, 2),
+                    (0.35, 0.82, 2), (0.55, 0.77, 2), (0.9, 0.79, 3)
                 ]
 
                 let textureColor = Color(red: 0.706, green: 0.392, blue: 0.235).opacity(0.25)
@@ -377,15 +378,18 @@ struct HorseShape: View {
 
 // MARK: - Canyon Layer View
 // Matches HTML canyon formations with scrolling animation (50s)
+// Formations sit ON the desert floor at the horizon line
 
 struct CanyonLayerView: View {
     let width: CGFloat
     let height: CGFloat
     let elapsedTime: Double
 
-    // Canyon should be positioned ON the desert floor (starting at 70% of screen)
-    private var desertTopY: CGFloat { height * 0.70 }
-    private var desertHeight: CGFloat { height * 0.30 }
+    // Canyon positioned at the horizon line (70% from top)
+    // Formations rise UP from the desert floor, not down
+    private var horizonY: CGFloat { height * 0.70 }
+    // Visible desert area for formation height calculations
+    private var visibleDesertHeight: CGFloat { height * 0.25 }
 
     var body: some View {
         let scrollProgress = elapsedTime.truncatingRemainder(dividingBy: 50) / 50
@@ -399,34 +403,36 @@ struct CanyonLayerView: View {
                 Color(red: 0.878, green: 0.533, blue: 0.314)   // #e08850
             ])
 
-            // Canyon formations - height is relative to desert area
+            // Canyon formations - triangular shapes sitting on the desert
+            // heightPercent is relative to visible desert area
             let formations: [(left: CGFloat, formationWidth: CGFloat, heightPercent: CGFloat, clipPath: [(CGFloat, CGFloat)])] = [
-                (left: 30, formationWidth: 200, heightPercent: 0.50,
+                (left: 30, formationWidth: 200, heightPercent: 0.40,
                  clipPath: [(0, 1), (0, 0.5), (0.15, 0.35), (0.35, 0.45), (0.5, 0.2), (0.65, 0.4), (0.85, 0.25), (1, 0.35), (1, 1)]),
-                (left: 280, formationWidth: 180, heightPercent: 0.45,
+                (left: 280, formationWidth: 180, heightPercent: 0.35,
                  clipPath: [(0, 1), (0, 0.4), (0.25, 0.25), (0.45, 0.35), (0.6, 0.15), (0.8, 0.3), (1, 0.2), (1, 1)]),
-                (left: 510, formationWidth: 220, heightPercent: 0.55,
+                (left: 510, formationWidth: 220, heightPercent: 0.45,
                  clipPath: [(0, 1), (0, 0.35), (0.2, 0.45), (0.4, 0.2), (0.55, 0.35), (0.75, 0.15), (0.9, 0.3), (1, 0.25), (1, 1)]),
-                (left: 780, formationWidth: 190, heightPercent: 0.48,
+                (left: 780, formationWidth: 190, heightPercent: 0.38,
                  clipPath: [(0, 1), (0, 0.3), (0.3, 0.4), (0.5, 0.15), (0.7, 0.35), (1, 0.2), (1, 1)])
             ]
 
             let htmlScreenWidth: CGFloat = 351
             let scaleFactor = width / htmlScreenWidth
 
-            // Draw formations on the desert area (bottom 30% of screen)
+            // Draw formations sitting on the desert at the horizon line
             for offset in [0, width] {
                 for formation in formations {
                     let formationX = formation.left * scaleFactor - scrollOffset + offset
                     let formationW = formation.formationWidth * scaleFactor
-                    // Height relative to desert area, not full screen
-                    let formationH = desertHeight * formation.heightPercent
+                    // Formation height based on visible desert area
+                    let formationH = visibleDesertHeight * formation.heightPercent
 
                     var path = Path()
                     for (index, point) in formation.clipPath.enumerated() {
                         let px = formationX + formationW * point.0
-                        // Position from desert top, going down
-                        let py = desertTopY + (desertHeight - formationH) + formationH * point.1
+                        // Formations sit on horizon line, peaks point UP (lower Y)
+                        // point.1 = 1 is base (at horizon), point.1 = 0 is peak (above horizon)
+                        let py = horizonY + formationH * point.1
 
                         if index == 0 {
                             path.move(to: CGPoint(x: px, y: py))
@@ -438,8 +444,8 @@ struct CanyonLayerView: View {
 
                     context.fill(path, with: .linearGradient(
                         canyonGradient,
-                        startPoint: CGPoint(x: formationX, y: desertTopY),
-                        endPoint: CGPoint(x: formationX, y: desertTopY + desertHeight)
+                        startPoint: CGPoint(x: formationX, y: horizonY),
+                        endPoint: CGPoint(x: formationX, y: horizonY + formationH)
                     ))
                 }
             }
