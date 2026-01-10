@@ -392,21 +392,27 @@ struct AstronautShootingStarsLayer: View {
             .offset(x: shoot2Offset)
             .position(x: screenSize.width * 0.55, y: screenSize.height * 0.14)
 
-        .onAppear {
+        .task {
             // Shooting star 1: every 10 seconds, 2s initial delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                triggerShoot1()
-            }
-            Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
-                triggerShoot1()
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            triggerShoot1()
+
+            Task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 10_000_000_000)
+                    await MainActor.run { triggerShoot1() }
+                }
             }
 
-            // Shooting star 2: every 14 seconds, 7s initial delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
-                triggerShoot2()
-            }
-            Timer.scheduledTimer(withTimeInterval: 14, repeats: true) { _ in
-                triggerShoot2()
+            // Shooting star 2: every 14 seconds, 7s initial delay (5s after star 1)
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            triggerShoot2()
+
+            Task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 14_000_000_000)
+                    await MainActor.run { triggerShoot2() }
+                }
             }
         }
     }
