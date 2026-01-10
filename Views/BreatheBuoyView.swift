@@ -305,15 +305,15 @@ struct BuoyShipsLayer: View {
         let bobX2 = sin(ship2Time * .pi * 0.67) * (-2)
 
         ZStack {
-            // Ship 1 - left
+            // Ship 1 - left (at horizon line, floating on water)
             BuoyShipView(variant: 1)
                 .frame(width: 50, height: 25)
-                .position(x: width * 0.08 + bobX1, y: height * 0.435 + bobY1)
+                .position(x: width * 0.08 + bobX1, y: height * 0.455 + bobY1)
 
-            // Ship 2 - right
+            // Ship 2 - right (at horizon line, floating on water)
             BuoyShipView(variant: 2)
                 .frame(width: 40, height: 20)
-                .position(x: width * 0.90 + bobX2, y: height * 0.44 + bobY2)
+                .position(x: width * 0.90 + bobX2, y: height * 0.46 + bobY2)
         }
     }
 }
