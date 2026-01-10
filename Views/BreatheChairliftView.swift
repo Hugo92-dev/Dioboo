@@ -407,10 +407,6 @@ struct ChairliftForestLayer: View {
                 // Draw forest only in the bottom portion (below mountains)
                 // Multiple rows with parallax effect
                 let rowConfigs: [(yRatio: CGFloat, scale: CGFloat, colors: [Color], spacing: CGFloat, parallax: CGFloat)] = [
-                    // Back rows (smaller, lighter green, slower parallax)
-                    (0.08, 0.55, [Color(hex: "3CB371"), Color(hex: "2E8B57"), Color(hex: "32CD32")], 14, 0.3),
-                    (0.18, 0.65, [Color(hex: "3CB371"), Color(hex: "2E8B57"), Color(hex: "228B22")], 15, 0.4),
-                    (0.30, 0.75, [Color(hex: "2E8B57"), Color(hex: "228B22"), Color(hex: "32CD32")], 16, 0.5),
                     // Middle rows
                     (0.44, 0.85, [Color(hex: "228B22"), Color(hex: "006400"), Color(hex: "008000")], 18, 0.65),
                     (0.58, 0.95, [Color(hex: "006400"), Color(hex: "008000"), Color(hex: "1A6B1A")], 20, 0.75),
