@@ -505,12 +505,16 @@ struct BranchWithLeaves: View {
         let branchLift = finalPhase * 25 // Vertical movement
 
         Canvas { context, size in
-            let centerX = size.width / 2
-            let centerY = size.height / 2
-            let scale = min(size.width / 300, size.height / 400)
+            // Scale to fit screen - branch should span from bottom-left to upper-right
+            // Original SVG viewBox is roughly 320x400, branch goes from (-20,380) to (290,75)
+            let scale = min(size.width / 280, size.height / 380) * 1.1
 
-            // Translate to position the branch container at center
-            context.translateBy(x: centerX - 150 * scale, y: centerY - 200 * scale)
+            // Position branch to start from bottom-left corner (off-screen)
+            // The branch path starts at M-20,380 which should be at the bottom-left of the screen
+            let offsetX: CGFloat = -40 * scale  // Push left so branch starts off-screen
+            let offsetY: CGFloat = size.height - 420 * scale  // Align bottom of branch coords with bottom of screen
+
+            context.translateBy(x: offsetX, y: offsetY)
 
             // Apply branch group transform: rotate around bottom-left origin (0%, 100%)
             // transformOrigin: '0% 100%' means (0, 380) in SVG coordinates
@@ -619,8 +623,8 @@ struct BranchWithLeaves: View {
                 context.translateBy(x: -pivotX * scale, y: -pivotY * scale)
             }
         }
-        .frame(width: 300, height: 400)
-        .position(x: width / 2, y: height / 2)
+        // Use full screen size to prevent clipping when branch rises/rotates
+        .frame(width: width, height: height)
     }
 
     // Parse simplified SVG path commands
