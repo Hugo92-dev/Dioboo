@@ -102,19 +102,18 @@ struct ReadView: View {
         let startTime = Date()
         let endTime = startTime.addingTimeInterval(TimeInterval(durationInSeconds))
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            let elapsed = Date().timeIntervalSince(startTime)
-            let total = TimeInterval(durationInSeconds)
+        Task { @MainActor in
+            while Date() < endTime {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                let elapsed = Date().timeIntervalSince(startTime)
+                let total = TimeInterval(durationInSeconds)
 
-            withAnimation(.linear(duration: 1)) {
-                progress = min(elapsed / total, 1)
-            }
-
-            if Date() >= endTime {
-                timer?.invalidate()
-                withAnimation {
-                    isTimeUp = true
+                withAnimation(.linear(duration: 1)) {
+                    progress = min(elapsed / total, 1)
                 }
+            }
+            withAnimation {
+                isTimeUp = true
             }
         }
     }

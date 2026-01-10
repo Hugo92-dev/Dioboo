@@ -13,123 +13,136 @@ struct BreatheHotairballoonView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var isInhaling: Bool = true
-    @State private var cycleProgress: CGFloat = 0
-    @State private var elapsedTime: TimeInterval = 0
-    @State private var animationTimer: Timer?
     @State private var startTime: Date?
-    @State private var timestamp: TimeInterval = 0
     @State private var sceneOpacity: Double = 0
+    @State private var hasCompleted: Bool = false
 
     private let cycleDuration: TimeInterval = 10.0
     private let riseHeight: CGFloat = 180
 
+    private var totalDuration: Double {
+        Double(duration * 60)
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Sky gradient - exact from HTML
-                // #1a3a5a 0%, #2a5a7a 15%, #4a8aaa 35%, #7ab4d4 55%, #a8d4e8 70%, #d4e8f0 85%, #e8f4f8 100%
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(hex: "1a3a5a"), location: 0.0),
-                        .init(color: Color(hex: "2a5a7a"), location: 0.15),
-                        .init(color: Color(hex: "4a8aaa"), location: 0.35),
-                        .init(color: Color(hex: "7ab4d4"), location: 0.55),
-                        .init(color: Color(hex: "a8d4e8"), location: 0.70),
-                        .init(color: Color(hex: "d4e8f0"), location: 0.85),
-                        .init(color: Color(hex: "e8f4f8"), location: 1.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+            let timestamp = elapsedTime * 1000
+            let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+            let isInhaling = cycleProgress < 0.5
 
-                // High altitude clouds (top 8%)
-                HotAirBalloonCloudsHighLayer(timestamp: timestamp)
+            GeometryReader { geo in
+                ZStack {
+                    // Sky gradient - exact from HTML
+                    // #1a3a5a 0%, #2a5a7a 15%, #4a8aaa 35%, #7ab4d4 55%, #a8d4e8 70%, #d4e8f0 85%, #e8f4f8 100%
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(hex: "1a3a5a"), location: 0.0),
+                            .init(color: Color(hex: "2a5a7a"), location: 0.15),
+                            .init(color: Color(hex: "4a8aaa"), location: 0.35),
+                            .init(color: Color(hex: "7ab4d4"), location: 0.55),
+                            .init(color: Color(hex: "a8d4e8"), location: 0.70),
+                            .init(color: Color(hex: "d4e8f0"), location: 0.85),
+                            .init(color: Color(hex: "e8f4f8"), location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
 
-                // Mid altitude clouds (top 25%)
-                HotAirBalloonCloudsMidLayer(timestamp: timestamp)
+                    // High altitude clouds (top 8%)
+                    HotAirBalloonCloudsHighLayer(timestamp: timestamp)
 
-                // Mist layer at 42%
-                HotAirBalloonMistLayer(cycleProgress: cycleProgress, riseHeight: riseHeight)
+                    // Mid altitude clouds (top 25%)
+                    HotAirBalloonCloudsMidLayer(timestamp: timestamp)
 
-                // Background balloons
-                HotAirBalloonBackgroundBalloonsLayer(timestamp: timestamp)
+                    // Mist layer at 42%
+                    HotAirBalloonMistLayer(cycleProgress: cycleProgress, riseHeight: riseHeight)
 
-                // Landscape with parallax
-                HotAirBalloonLandscapeView(cycleProgress: cycleProgress, riseHeight: riseHeight)
-                    .frame(width: geo.size.width * 1.2, height: geo.size.height * 0.55)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.90)
+                    // Background balloons
+                    HotAirBalloonBackgroundBalloonsLayer(timestamp: timestamp)
 
-                // Main hot air balloon
-                HotAirBalloonMainView(
-                    cycleProgress: cycleProgress,
-                    riseHeight: riseHeight,
-                    timestamp: timestamp,
-                    isInhaling: isInhaling
-                )
-                .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    // Landscape with parallax
+                    HotAirBalloonLandscapeView(cycleProgress: cycleProgress, riseHeight: riseHeight)
+                        .frame(width: geo.size.width * 1.2, height: geo.size.height * 0.55)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.90)
 
-                // UI Overlay
-                VStack {
-                    // Back button - glass effect matching HTML
-                    HStack {
-                        Button(action: onBack) {
-                            Circle()
-                                .fill(Color.white.opacity(0.15))
-                                .frame(width: 42, height: 42)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                )
-                                .overlay(
-                                    Image(systemName: "arrow.left")
-                                        .foregroundColor(.white)
-                                        .font(.system(size: 18, weight: .medium))
-                                )
+                    // Main hot air balloon
+                    HotAirBalloonMainView(
+                        cycleProgress: cycleProgress,
+                        riseHeight: riseHeight,
+                        timestamp: timestamp,
+                        isInhaling: isInhaling
+                    )
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+
+                    // UI Overlay
+                    VStack {
+                        // Back button - glass effect matching HTML
+                        HStack {
+                            Button(action: onBack) {
+                                Circle()
+                                    .fill(Color.white.opacity(0.15))
+                                    .frame(width: 42, height: 42)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        Image(systemName: "arrow.left")
+                                            .foregroundColor(.white)
+                                            .font(.system(size: 18, weight: .medium))
+                                    )
+                            }
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 42, height: 42)
+                                    .opacity(0.5)
+                            )
+                            Spacer()
                         }
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .frame(width: 42, height: 42)
-                                .opacity(0.5)
-                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
                         Spacer()
+
+                        // Phase text - exact from HTML
+                        Text(isInhaling ? "INHALE" : "EXHALE")
+                            .font(.system(size: 22, weight: .regular))
+                            .foregroundColor(Color(hex: "F5F7FF"))
+                            .tracking(6)
+                            .shadow(color: Color(hex: "003250").opacity(0.4), radius: 15, y: 2)
+                            .padding(.bottom, 8)
+
+                        // Timer text
+                        Text(formatTime(remaining: max(0, totalDuration - elapsedTime)))
+                            .font(.system(size: 15, weight: .light))
+                            .foregroundColor(Color.white.opacity(0.8))
+                            .padding(.bottom, 8)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.2))
+                                .frame(height: 3)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.8))
+                                .frame(width: max(0, (elapsedTime / totalDuration) * (geo.size.width - 90)), height: 3)
+                        }
+                        .padding(.horizontal, 45)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text - exact from HTML
-                    Text(isInhaling ? "INHALE" : "EXHALE")
-                        .font(.system(size: 22, weight: .regular))
-                        .foregroundColor(Color(hex: "F5F7FF"))
-                        .tracking(6)
-                        .shadow(color: Color(hex: "003250").opacity(0.4), radius: 15, y: 2)
-                        .padding(.bottom, 8)
-
-                    // Timer text
-                    Text(formatTime(remaining: max(0, Double(duration * 60) - elapsedTime)))
-                        .font(.system(size: 15, weight: .light))
-                        .foregroundColor(Color.white.opacity(0.8))
-                        .padding(.bottom, 8)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.white.opacity(0.2))
-                            .frame(height: 3)
-
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.white.opacity(0.8))
-                            .frame(width: max(0, (elapsedTime / Double(duration * 60)) * (geo.size.width - 90)), height: 3)
-                    }
-                    .padding(.horizontal, 45)
-                    .padding(.bottom, 50)
+                }
+                .opacity(sceneOpacity)
+            }
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
-            .opacity(sceneOpacity)
         }
         .onAppear {
             // Fade in animation matching HTML (1s ease, 0.3s delay)
@@ -140,11 +153,8 @@ struct BreatheHotairballoonView: View {
             }
             // Start breathing animation after 1.2s (matching HTML)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                startAnimation()
+                startTime = Date()
             }
-        }
-        .onDisappear {
-            animationTimer?.invalidate()
         }
     }
 
@@ -153,28 +163,6 @@ struct BreatheHotairballoonView: View {
         let minutes = secs / 60
         let seconds = secs % 60
         return String(format: "%d:%02d", minutes, seconds)
-    }
-
-    private func startAnimation() {
-        startTime = Date()
-
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { _ in
-            guard let start = startTime else { return }
-            let elapsed = Date().timeIntervalSince(start)
-            timestamp = elapsed * 1000 // Convert to milliseconds for consistency with HTML
-            elapsedTime = elapsed
-
-            // Check if complete
-            if elapsed >= Double(duration * 60) {
-                animationTimer?.invalidate()
-                onComplete()
-                return
-            }
-
-            let progress = (elapsed.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
-            cycleProgress = progress
-            isInhaling = progress < 0.5
-        }
     }
 }
 

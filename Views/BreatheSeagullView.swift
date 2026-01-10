@@ -12,140 +12,153 @@ struct BreatheSeagullView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var isInhaling: Bool = true
-    @State private var cycleProgress: CGFloat = 0
-    @State private var elapsedTime: TimeInterval = 0
-    @State private var animationTimer: Timer?
     @State private var startTime: Date?
-    @State private var timestamp: TimeInterval = 0
     @State private var isSceneVisible: Bool = false
+    @State private var hasCompleted: Bool = false
 
     // Movement parameters from HTML
     private let skyHeight: CGFloat = 180
     private let waterDepth: CGFloat = 60
     private let cycleDuration: TimeInterval = 10.0
 
+    private var totalDuration: Double {
+        Double(duration * 60)
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Background
-                Color(hex: "1a4a6a")
-                    .ignoresSafeArea()
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+            let timestamp = elapsedTime * 1000
+            let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+            let isInhaling = cycleProgress < 0.5
 
-                // Scene container with fade in
+            GeometryReader { geo in
                 ZStack {
-                    // Sky gradient - exact from HTML (top 60%)
-                    // #1a4a6a 0%, #2a6a8a 25%, #4a9aba 55%, #7ac4e4 80%, #a8e0f8 100%
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color(hex: "1a4a6a"), location: 0.0),
-                            .init(color: Color(hex: "2a6a8a"), location: 0.25),
-                            .init(color: Color(hex: "4a9aba"), location: 0.55),
-                            .init(color: Color(hex: "7ac4e4"), location: 0.80),
-                            .init(color: Color(hex: "a8e0f8"), location: 1.0)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: geo.size.height * 0.6)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.3)
+                    // Background
+                    Color(hex: "1a4a6a")
+                        .ignoresSafeArea()
 
-                    // Clouds
-                    SeagullCloudsLayer()
-                        .frame(width: geo.size.width, height: geo.size.height * 0.6)
+                    // Scene container with fade in
+                    ZStack {
+                        // Sky gradient - exact from HTML (top 60%)
+                        // #1a4a6a 0%, #2a6a8a 25%, #4a9aba 55%, #7ac4e4 80%, #a8e0f8 100%
+                        LinearGradient(
+                            stops: [
+                                .init(color: Color(hex: "1a4a6a"), location: 0.0),
+                                .init(color: Color(hex: "2a6a8a"), location: 0.25),
+                                .init(color: Color(hex: "4a9aba"), location: 0.55),
+                                .init(color: Color(hex: "7ac4e4"), location: 0.80),
+                                .init(color: Color(hex: "a8e0f8"), location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: geo.size.height * 0.6)
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.3)
 
-                    // Ocean (bottom 48%)
-                    SeagullOceanView(
-                        cycleProgress: cycleProgress,
-                        skyHeight: skyHeight,
-                        waterDepth: waterDepth
-                    )
-                    .frame(width: geo.size.width * 1.2, height: geo.size.height * 0.48 * 1.2)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.76)
+                        // Clouds
+                        SeagullCloudsLayer()
+                            .frame(width: geo.size.width, height: geo.size.height * 0.6)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.3)
 
-                    // Horizon elements (island) - at 52% from top, right side (8% from right)
-                    SeagullIslandView()
-                        .position(x: geo.size.width * 0.92, y: geo.size.height * 0.52 - 5)
+                        // Ocean (bottom 48%)
+                        SeagullOceanView(
+                            cycleProgress: cycleProgress,
+                            skyHeight: skyHeight,
+                            waterDepth: waterDepth
+                        )
+                        .frame(width: geo.size.width * 1.2, height: geo.size.height * 0.48 * 1.2)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.76)
 
-                    // Sailboats layer (z-index: 15 in HTML)
-                    SeagullSailboatsLayer(screenWidth: geo.size.width, screenHeight: geo.size.height)
+                        // Horizon elements (island) - at 52% from top, right side (8% from right)
+                        SeagullIslandView()
+                            .position(x: geo.size.width * 0.92, y: geo.size.height * 0.52 - 5)
 
-                    // Seagull (z-index: 10 in HTML) - centered at 52% from top
-                    SeagullBirdView(
-                        cycleProgress: cycleProgress,
-                        timestamp: timestamp,
-                        skyHeight: skyHeight,
-                        waterDepth: waterDepth
-                    )
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.52)
+                        // Sailboats layer (z-index: 15 in HTML)
+                        SeagullSailboatsLayer(screenWidth: geo.size.width, screenHeight: geo.size.height)
 
-                    // UI Overlay (z-index: 90 in HTML)
-                    VStack {
-                        // Back button - glass effect matching HTML exactly
-                        HStack {
-                            Button(action: onBack) {
-                                Circle()
-                                    .fill(Color.white.opacity(0.15))
-                                    .frame(width: 42, height: 42)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .background(
-                                        Circle()
-                                            .fill(.ultraThinMaterial)
-                                            .blur(radius: 10)
-                                    )
-                                    .overlay(
-                                        Image(systemName: "arrow.left")
-                                            .foregroundColor(.white)
-                                            .font(.system(size: 18, weight: .medium))
-                                    )
+                        // Seagull (z-index: 10 in HTML) - centered at 52% from top
+                        SeagullBirdView(
+                            cycleProgress: cycleProgress,
+                            timestamp: timestamp,
+                            skyHeight: skyHeight,
+                            waterDepth: waterDepth
+                        )
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.52)
+
+                        // UI Overlay (z-index: 90 in HTML)
+                        VStack {
+                            // Back button - glass effect matching HTML exactly
+                            HStack {
+                                Button(action: onBack) {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.15))
+                                        .frame(width: 42, height: 42)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .background(
+                                            Circle()
+                                                .fill(.ultraThinMaterial)
+                                                .blur(radius: 10)
+                                        )
+                                        .overlay(
+                                            Image(systemName: "arrow.left")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 18, weight: .medium))
+                                        )
+                                }
+                                Spacer()
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 60)
+
                             Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 60)
 
-                        Spacer()
+                            // Phase text - exact styling from HTML
+                            // font-size: 22px, letter-spacing: 6px, color: #F5F7FF
+                            // text-shadow: 0 2px 15px rgba(0, 50, 100, 0.4)
+                            Text(isInhaling ? "INHALE" : "EXHALE")
+                                .font(.system(size: 22, weight: .regular))
+                                .foregroundColor(Color(hex: "F5F7FF"))
+                                .tracking(6)
+                                .shadow(color: Color(red: 0, green: 50/255, blue: 100/255).opacity(0.4), radius: 15, x: 0, y: 2)
+                                .padding(.bottom, 32)
 
-                        // Phase text - exact styling from HTML
-                        // font-size: 22px, letter-spacing: 6px, color: #F5F7FF
-                        // text-shadow: 0 2px 15px rgba(0, 50, 100, 0.4)
-                        Text(isInhaling ? "INHALE" : "EXHALE")
-                            .font(.system(size: 22, weight: .regular))
-                            .foregroundColor(Color(hex: "F5F7FF"))
-                            .tracking(6)
-                            .shadow(color: Color(red: 0, green: 50/255, blue: 100/255).opacity(0.4), radius: 15, x: 0, y: 2)
-                            .padding(.bottom, 32)
+                            // Timer text - font-size: 15px, font-weight: 300, color: rgba(255,255,255,0.8)
+                            Text(formatTime(remaining: max(0, totalDuration - elapsedTime)))
+                                .font(.system(size: 15, weight: .light))
+                                .foregroundColor(Color.white.opacity(0.8))
+                                .padding(.bottom, 38)
 
-                        // Timer text - font-size: 15px, font-weight: 300, color: rgba(255,255,255,0.8)
-                        Text(formatTime(remaining: max(0, Double(duration * 60) - elapsedTime)))
-                            .font(.system(size: 15, weight: .light))
-                            .foregroundColor(Color.white.opacity(0.8))
-                            .padding(.bottom, 38)
+                            // Progress bar - height: 3px, background: rgba(255,255,255,0.2)
+                            GeometryReader { progressGeo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.white.opacity(0.2))
+                                        .frame(height: 3)
 
-                        // Progress bar - height: 3px, background: rgba(255,255,255,0.2)
-                        GeometryReader { progressGeo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(height: 3)
-
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.white.opacity(0.8))
-                                    .frame(width: progressGeo.size.width * CGFloat(elapsedTime / Double(duration * 60)), height: 3)
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.white.opacity(0.8))
+                                        .frame(width: progressGeo.size.width * CGFloat(elapsedTime / totalDuration), height: 3)
+                                }
                             }
+                            .frame(height: 3)
+                            .padding(.horizontal, 45)
+                            .padding(.bottom, 50)
                         }
-                        .frame(height: 3)
-                        .padding(.horizontal, 45)
-                        .padding(.bottom, 50)
                     }
+                    .opacity(isSceneVisible ? 1 : 0)
                 }
-                .opacity(isSceneVisible ? 1 : 0)
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
+                }
+            }
         }
         .onAppear {
             // Fade in animation matching HTML (0.3s delay, 1s fade)
@@ -156,11 +169,8 @@ struct BreatheSeagullView: View {
             }
             // Start animation after 1.2s (matching HTML setTimeout)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                startAnimation()
+                startTime = Date()
             }
-        }
-        .onDisappear {
-            animationTimer?.invalidate()
         }
     }
 
@@ -169,31 +179,6 @@ struct BreatheSeagullView: View {
         let minutes = secs / 60
         let seconds = secs % 60
         return String(format: "%d:%02d", minutes, seconds)
-    }
-
-    private func startAnimation() {
-        startTime = Date()
-
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { _ in
-            guard let start = startTime else { return }
-            let elapsed = Date().timeIntervalSince(start)
-            elapsedTime = elapsed
-            timestamp = elapsed * 1000 // Convert to milliseconds like HTML
-
-            // Check if complete
-            if elapsed >= Double(duration * 60) {
-                animationTimer?.invalidate()
-                onComplete()
-                return
-            }
-
-            // Calculate cycle progress (0 to 1)
-            let progress = (elapsed.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
-            cycleProgress = progress
-
-            // Update phase
-            isInhaling = progress < 0.5
-        }
     }
 }
 

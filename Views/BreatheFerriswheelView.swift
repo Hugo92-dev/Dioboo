@@ -12,12 +12,8 @@ struct BreatheFerriswheelView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var isInhaling: Bool = true
-    @State private var cycleProgress: CGFloat = 0
-    @State private var totalElapsed: TimeInterval = 0
-    @State private var animationTimer: Timer?
     @State private var startTime: Date?
-    @State private var isComplete: Bool = false
+    @State private var hasCompleted: Bool = false
 
     private let inhaleDuration: TimeInterval = 5.0
     private let exhaleDuration: TimeInterval = 5.0
@@ -25,238 +21,226 @@ struct BreatheFerriswheelView: View {
     private var totalDuration: TimeInterval { TimeInterval(duration) * 60.0 }
 
     var body: some View {
-        GeometryReader { geo in
-            let screenWidth = geo.size.width
-            let screenHeight = geo.size.height
+        TimelineView(.animation) { timeline in
+            let totalElapsed = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+            let cycleProgress = totalElapsed.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+            let isInhaling = cycleProgress < 0.5
 
-            ZStack {
-                // Night sky gradient - exact from HTML
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(hex: "070A14"), location: 0.0),
-                        .init(color: Color(hex: "0a0e1a"), location: 0.20),
-                        .init(color: Color(hex: "0d1322"), location: 0.40),
-                        .init(color: Color(hex: "101828"), location: 0.55),
-                        .init(color: Color(hex: "141e32"), location: 0.70),
-                        .init(color: Color(hex: "182440"), location: 0.85),
-                        .init(color: Color(hex: "1a2844"), location: 1.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+            GeometryReader { geo in
+                let screenWidth = geo.size.width
+                let screenHeight = geo.size.height
 
-                // Stars layer (top 55% of screen)
-                FerrisStarsView(screenWidth: screenWidth, screenHeight: screenHeight)
-
-                // Moon
-                FerrisMoonView()
-                    .position(x: screenWidth - 60, y: 95)
-
-                // Clouds
-                FerrisCloudsView()
-                    .frame(width: screenWidth, height: screenHeight * 0.45)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.225)
-
-                // City far layer (bottom: 22%, height: 20%, opacity: 0.4)
-                FerrisCityFarView(scale: screenWidth / 351)
-                    .frame(width: screenWidth, height: screenHeight * 0.20)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.68)
-                    .opacity(0.4)
-
-                // City mid layer with Big Ben (bottom: 20%, height: 22%, opacity: 0.7)
-                FerrisCityMidView(scale: screenWidth / 351)
-                    .frame(width: screenWidth, height: screenHeight * 0.22)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.69)
-                    .opacity(0.7)
-
-                // City front layer (bottom: 18%, height: 18%)
-                FerrisCityFrontView(scale: screenWidth / 351)
-                    .frame(width: screenWidth, height: screenHeight * 0.18)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.73)
-
-                // Bridge (bottom: 17%, height: 12%)
-                FerrisBridgeView(scale: screenWidth / 351)
-                    .frame(width: screenWidth, height: screenHeight * 0.12)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.77)
-
-                // Mist layer
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            stops: [
-                                .init(color: Color.clear, location: 0.0),
-                                .init(color: Color(hex: "0f1630").opacity(0.3), location: 0.5),
-                                .init(color: Color(hex: "0f1630").opacity(0.5), location: 1.0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                ZStack {
+                    // Night sky gradient - exact from HTML
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(hex: "070A14"), location: 0.0),
+                            .init(color: Color(hex: "0a0e1a"), location: 0.20),
+                            .init(color: Color(hex: "0d1322"), location: 0.40),
+                            .init(color: Color(hex: "101828"), location: 0.55),
+                            .init(color: Color(hex: "141e32"), location: 0.70),
+                            .init(color: Color(hex: "182440"), location: 0.85),
+                            .init(color: Color(hex: "1a2844"), location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
-                    .frame(width: screenWidth, height: screenHeight * 0.25)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.695)
-                    .allowsHitTesting(false)
+                    .ignoresSafeArea()
 
-                // Embankment
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "1a2030"), Color(hex: "141820")],
-                            startPoint: .top,
-                            endPoint: .bottom
+                    // Stars layer (top 55% of screen)
+                    FerrisStarsView(screenWidth: screenWidth, screenHeight: screenHeight)
+
+                    // Moon
+                    FerrisMoonView()
+                        .position(x: screenWidth - 60, y: 95)
+
+                    // Clouds
+                    FerrisCloudsView()
+                        .frame(width: screenWidth, height: screenHeight * 0.45)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.225)
+
+                    // City far layer (bottom: 22%, height: 20%, opacity: 0.4)
+                    FerrisCityFarView(scale: screenWidth / 351)
+                        .frame(width: screenWidth, height: screenHeight * 0.20)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.68)
+                        .opacity(0.4)
+
+                    // City mid layer with Big Ben (bottom: 20%, height: 22%, opacity: 0.7)
+                    FerrisCityMidView(scale: screenWidth / 351)
+                        .frame(width: screenWidth, height: screenHeight * 0.22)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.69)
+                        .opacity(0.7)
+
+                    // City front layer (bottom: 18%, height: 18%)
+                    FerrisCityFrontView(scale: screenWidth / 351)
+                        .frame(width: screenWidth, height: screenHeight * 0.18)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.73)
+
+                    // Bridge (bottom: 17%, height: 12%)
+                    FerrisBridgeView(scale: screenWidth / 351)
+                        .frame(width: screenWidth, height: screenHeight * 0.12)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.77)
+
+                    // Mist layer
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: Color.clear, location: 0.0),
+                                    .init(color: Color(hex: "0f1630").opacity(0.3), location: 0.5),
+                                    .init(color: Color(hex: "0f1630").opacity(0.5), location: 1.0)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
-                    .frame(width: screenWidth, height: screenHeight * 0.04)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.81)
+                        .frame(width: screenWidth, height: screenHeight * 0.25)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.695)
+                        .allowsHitTesting(false)
 
-                // Embankment line
-                Rectangle()
-                    .fill(Color(hex: "2a3040"))
-                    .frame(width: screenWidth, height: 2)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.79)
-
-                // Lampposts
-                FerrisLamppostsView(scale: screenWidth / 351)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.785)
-
-                // Wheel glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hex: "86A6FF").opacity(0.1),
-                                Color(hex: "C6A6FF").opacity(0.05),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 160
+                    // Embankment
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "1a2030"), Color(hex: "141820")],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
-                    .frame(width: 320, height: 320)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.60)
+                        .frame(width: screenWidth, height: screenHeight * 0.04)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.81)
 
-                // Water (Thames) - bottom 18%
-                FerrisWaterView(screenWidth: screenWidth, screenHeight: screenHeight)
+                    // Embankment line
+                    Rectangle()
+                        .fill(Color(hex: "2a3040"))
+                        .frame(width: screenWidth, height: 2)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.79)
 
-                // Water surface line
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            stops: [
-                                .init(color: Color.clear, location: 0.0),
-                                .init(color: Color(hex: "86A6FF").opacity(0.15), location: 0.2),
-                                .init(color: Color(hex: "86A6FF").opacity(0.25), location: 0.5),
-                                .init(color: Color(hex: "86A6FF").opacity(0.15), location: 0.8),
-                                .init(color: Color.clear, location: 1.0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
+                    // Lampposts
+                    FerrisLamppostsView(scale: screenWidth / 351)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.785)
+
+                    // Wheel glow
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(hex: "86A6FF").opacity(0.1),
+                                    Color(hex: "C6A6FF").opacity(0.05),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 160
+                            )
                         )
+                        .frame(width: 320, height: 320)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.60)
+
+                    // Water (Thames) - bottom 18%
+                    FerrisWaterView(screenWidth: screenWidth, screenHeight: screenHeight)
+
+                    // Water surface line
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: Color.clear, location: 0.0),
+                                    .init(color: Color(hex: "86A6FF").opacity(0.15), location: 0.2),
+                                    .init(color: Color(hex: "86A6FF").opacity(0.25), location: 0.5),
+                                    .init(color: Color(hex: "86A6FF").opacity(0.15), location: 0.8),
+                                    .init(color: Color.clear, location: 1.0)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: screenWidth, height: 3)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.822)
+
+                    // Moon reflection on water
+                    FerrisMoonReflectionView(screenWidth: screenWidth, screenHeight: screenHeight)
+
+                    // Boats
+                    FerrisBoatsView(screenWidth: screenWidth, screenHeight: screenHeight)
+
+                    // London Eye wheel
+                    FerrisWheelView()
+                        .frame(width: 280, height: 280)
+                        .position(x: screenWidth / 2, y: screenHeight * 0.60)
+
+                    // Capsule and its reflection
+                    FerrisCapsuleAnimatedView(
+                        cycleProgress: cycleProgress,
+                        screenWidth: screenWidth,
+                        screenHeight: screenHeight
                     )
-                    .frame(width: screenWidth, height: 3)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.822)
 
-                // Moon reflection on water
-                FerrisMoonReflectionView(screenWidth: screenWidth, screenHeight: screenHeight)
+                    // UI Overlay
+                    VStack(spacing: 0) {
+                        // Back button
+                        HStack {
+                            Button(action: onBack) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: "0f1630").opacity(0.8))
+                                        .frame(width: 42, height: 42)
 
-                // Boats
-                FerrisBoatsView(screenWidth: screenWidth, screenHeight: screenHeight)
+                                    Circle()
+                                        .stroke(Color(hex: "1A2552"), lineWidth: 1)
+                                        .frame(width: 42, height: 42)
 
-                // London Eye wheel
-                FerrisWheelView()
-                    .frame(width: 280, height: 280)
-                    .position(x: screenWidth / 2, y: screenHeight * 0.60)
-
-                // Capsule and its reflection
-                FerrisCapsuleAnimatedView(
-                    cycleProgress: cycleProgress,
-                    screenWidth: screenWidth,
-                    screenHeight: screenHeight
-                )
-
-                // UI Overlay
-                VStack(spacing: 0) {
-                    // Back button
-                    HStack {
-                        Button(action: onBack) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color(hex: "0f1630").opacity(0.8))
-                                    .frame(width: 42, height: 42)
-
-                                Circle()
-                                    .stroke(Color(hex: "1A2552"), lineWidth: 1)
-                                    .frame(width: 42, height: 42)
-
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(Color(hex: "B8C0E6"))
+                                    Image(systemName: "arrow.left")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(Color(hex: "B8C0E6"))
+                                }
                             }
+                            .buttonStyle(.plain)
+                            Spacer()
                         }
-                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
                         Spacer()
+
+                        // Phase text
+                        Text(isInhaling ? "INHALE" : "EXHALE")
+                            .font(.system(size: 22, weight: .regular))
+                            .foregroundColor(Color(hex: "F5F7FF"))
+                            .tracking(6)
+                            .opacity(0.9)
+                            .padding(.bottom, 8)
+
+                        // Timer text
+                        Text(formatTime(remaining: max(0, totalDuration - totalElapsed)))
+                            .font(.system(size: 15, weight: .light))
+                            .foregroundColor(Color(hex: "B8C0E6"))
+                            .padding(.bottom, 16)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(hex: "1A2552"))
+                                .frame(height: 3)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(hex: "86A6FF"))
+                                .frame(width: (screenWidth - 90) * CGFloat(totalElapsed / totalDuration), height: 3)
+                        }
+                        .frame(width: screenWidth - 90)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text
-                    Text(isInhaling ? "INHALE" : "EXHALE")
-                        .font(.system(size: 22, weight: .regular))
-                        .foregroundColor(Color(hex: "F5F7FF"))
-                        .tracking(6)
-                        .opacity(0.9)
-                        .padding(.bottom, 8)
-
-                    // Timer text
-                    Text(formatTime(remaining: max(0, totalDuration - totalElapsed)))
-                        .font(.system(size: 15, weight: .light))
-                        .foregroundColor(Color(hex: "B8C0E6"))
-                        .padding(.bottom, 16)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color(hex: "1A2552"))
-                            .frame(height: 3)
-
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color(hex: "86A6FF"))
-                            .frame(width: (screenWidth - 90) * CGFloat(totalElapsed / totalDuration), height: 3)
-                    }
-                    .frame(width: screenWidth - 90)
-                    .padding(.bottom, 50)
+                }
+            }
+            .onChange(of: totalElapsed >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
         }
         .onAppear {
-            startAnimation()
-        }
-        .onDisappear {
-            animationTimer?.invalidate()
-        }
-    }
-
-    private func startAnimation() {
-        startTime = Date()
-
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { _ in
-            guard let start = startTime else { return }
-            let elapsed = Date().timeIntervalSince(start)
-            totalElapsed = elapsed
-
-            if elapsed >= totalDuration && !isComplete {
-                isComplete = true
-                animationTimer?.invalidate()
-                onComplete()
-                return
-            }
-
-            let cycleTime = elapsed.truncatingRemainder(dividingBy: cycleDuration)
-            cycleProgress = cycleTime / cycleDuration
-            isInhaling = cycleProgress < 0.5
+            startTime = Date()
         }
     }
 

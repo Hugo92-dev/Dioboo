@@ -101,16 +101,17 @@ struct BreathingTimer: View {
     private func startTimer() {
         let totalSeconds = Double(duration * 60)
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-                withAnimation(.linear(duration: 1)) {
-                    progress = 1 - (Double(timeRemaining) / totalSeconds)
+        Task { @MainActor in
+            while timeRemaining > 0 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                    withAnimation(.linear(duration: 1)) {
+                        progress = 1 - (Double(timeRemaining) / totalSeconds)
+                    }
                 }
-            } else {
-                timer?.invalidate()
-                onComplete()
             }
+            onComplete()
         }
     }
 }

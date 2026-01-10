@@ -5,9 +5,9 @@ struct BreatheBranchView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var elapsedTime: Double = 0
-    @State private var isAnimating = false
+    @State private var startTime: Date?
     @State private var sceneOpacity: Double = 0
+    @State private var hasCompleted: Bool = false
 
     private let cycleDuration: Double = 10.0
 
@@ -16,94 +16,104 @@ struct BreatheBranchView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
 
-            ZStack {
-                // Background with gradient (matches HTML exactly)
-                ForestBackground()
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let height = geometry.size.height
 
-                // Bokeh lights
-                BokehLayer(elapsedTime: elapsedTime, cycleDuration: cycleDuration, width: width, height: height)
+                ZStack {
+                    // Background with gradient (matches HTML exactly)
+                    ForestBackground()
 
-                // Birds flying
-                BirdsLayer(elapsedTime: elapsedTime, width: width, height: height)
+                    // Bokeh lights
+                    BokehLayer(elapsedTime: elapsedTime, cycleDuration: cycleDuration, width: width, height: height)
 
-                // Light rays
-                LightRaysLayer(elapsedTime: elapsedTime, cycleDuration: cycleDuration, width: width, height: height)
+                    // Birds flying
+                    BirdsLayer(elapsedTime: elapsedTime, width: width, height: height)
 
-                // Branch with leaves
-                BranchWithLeaves(
-                    elapsedTime: elapsedTime,
-                    cycleDuration: cycleDuration,
-                    width: width,
-                    height: height
-                )
+                    // Light rays
+                    LightRaysLayer(elapsedTime: elapsedTime, cycleDuration: cycleDuration, width: width, height: height)
 
-                // UI Layer
-                VStack {
-                    HStack {
-                        Button(action: onBack) {
-                            ZStack {
-                                Circle()
-                                    .fill(.white.opacity(0.15))
-                                    .frame(width: 42, height: 42)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .blur(radius: 0.5) // backdrop-filter simulation
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.white)
+                    // Branch with leaves
+                    BranchWithLeaves(
+                        elapsedTime: elapsedTime,
+                        cycleDuration: cycleDuration,
+                        width: width,
+                        height: height
+                    )
+
+                    // UI Layer
+                    VStack {
+                        HStack {
+                            Button(action: onBack) {
+                                ZStack {
+                                    Circle()
+                                        .fill(.white.opacity(0.15))
+                                        .frame(width: 42, height: 42)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(.white.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .blur(radius: 0.5) // backdrop-filter simulation
+                                    Image(systemName: "arrow.left")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
                             }
+                            Spacer()
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
                         Spacer()
+
+                        // Phase text
+                        let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+                        let isInhale = cycleProgress < 0.5
+
+                        Text(isInhale ? "INHALE" : "EXHALE")
+                            .font(.custom("Nunito", size: 22).weight(.regular))
+                            .tracking(6)
+                            .foregroundColor(.white)
+                            .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.5), radius: 15, y: 2)
+                            .padding(.bottom, 32)
+
+                        // Timer
+                        let remaining = max(0, totalDuration - elapsedTime)
+                        let minutes = Int(remaining) / 60
+                        let seconds = Int(remaining) % 60
+
+                        Text(String(format: "%d:%02d", minutes, seconds))
+                            .font(.custom("Nunito", size: 15).weight(.light))
+                            .foregroundColor(.white.opacity(0.9))
+                            .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.3), radius: 5, y: 1)
+                            .padding(.bottom, 38)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.2))
+                                .frame(height: 3)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.8))
+                                .frame(width: max(0, (geometry.size.width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
+                        }
+                        .padding(.horizontal, 45)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text
-                    let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
-                    let isInhale = cycleProgress < 0.5
-
-                    Text(isInhale ? "INHALE" : "EXHALE")
-                        .font(.custom("Nunito", size: 22).weight(.regular))
-                        .tracking(6)
-                        .foregroundColor(.white)
-                        .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.5), radius: 15, y: 2)
-                        .padding(.bottom, 32)
-
-                    // Timer
-                    let remaining = max(0, totalDuration - elapsedTime)
-                    let minutes = Int(remaining) / 60
-                    let seconds = Int(remaining) % 60
-
-                    Text(String(format: "%d:%02d", minutes, seconds))
-                        .font(.custom("Nunito", size: 15).weight(.light))
-                        .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: Color(red: 0, green: 50.0/255.0, blue: 30.0/255.0).opacity(0.3), radius: 5, y: 1)
-                        .padding(.bottom, 38)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.2))
-                            .frame(height: 3)
-
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.8))
-                            .frame(width: max(0, (geometry.size.width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
-                    }
-                    .padding(.horizontal, 45)
-                    .padding(.bottom, 50)
+                }
+                .ignoresSafeArea()
+                .opacity(sceneOpacity)
+            }
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
-            .ignoresSafeArea()
-            .opacity(sceneOpacity)
         }
         .onAppear {
             // Fade in animation matching HTML (1s ease with 0.3s delay)
@@ -114,29 +124,7 @@ struct BreatheBranchView: View {
             }
             // Start breath animation after 1.2s
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                startAnimation()
-            }
-        }
-        .onDisappear {
-            isAnimating = false
-        }
-    }
-
-    private func startAnimation() {
-        isAnimating = true
-        let startTime = Date()
-
-        Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { timer in
-            guard isAnimating else {
-                timer.invalidate()
-                return
-            }
-
-            elapsedTime = Date().timeIntervalSince(startTime)
-
-            if elapsedTime >= totalDuration {
-                timer.invalidate()
-                onComplete()
+                startTime = Date()
             }
         }
     }

@@ -5,8 +5,8 @@ struct BreatheGlidingbirdView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var elapsedTime: Double = 0
-    @State private var isAnimating = false
+    @State private var startTime: Date?
+    @State private var hasCompleted: Bool = false
 
     private let cycleDuration: Double = 10.0
 
@@ -15,127 +15,115 @@ struct BreatheGlidingbirdView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
 
-            ZStack {
-                // Sky gradient - matches HTML exactly
-                DesertSkyView()
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let height = geometry.size.height
 
-                // Sun - positioned at top 12%, right 15%
-                SunView()
-                    .position(x: width * 0.85, y: height * 0.12)
+                ZStack {
+                    // Sky gradient - matches HTML exactly
+                    DesertSkyView()
 
-                // Desert floor - 18% height from bottom
-                DesertFloorView(width: width, height: height)
+                    // Sun - positioned at top 12%, right 15%
+                    SunView()
+                        .position(x: width * 0.85, y: height * 0.12)
 
-                // Horses running in distance
-                HorsesLayerView(width: width, height: height, elapsedTime: elapsedTime)
+                    // Desert floor - 18% height from bottom
+                    DesertFloorView(width: width, height: height)
 
-                // Canyon rock formations
-                CanyonLayerView(width: width, height: height, elapsedTime: elapsedTime)
+                    // Horses running in distance
+                    HorsesLayerView(width: width, height: height, elapsedTime: elapsedTime)
 
-                // Cactus layer
-                CactusLayerView(width: width, height: height, elapsedTime: elapsedTime)
+                    // Canyon rock formations
+                    CanyonLayerView(width: width, height: height, elapsedTime: elapsedTime)
 
-                // Gliding bird - positioned at left 30%, animated vertically
-                // Bird rises during inhale, descends during exhale
-                let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
-                let flightPhase = cos(cycleProgress * .pi * 2)
-                let birdYOffset = flightPhase * height * 0.18
+                    // Cactus layer
+                    CactusLayerView(width: width, height: height, elapsedTime: elapsedTime)
 
-                GlidingBirdView(elapsedTime: elapsedTime, cycleDuration: cycleDuration)
-                    .frame(width: 80, height: 50)
-                    .position(x: width * 0.30, y: height * 0.35 + birdYOffset)
-
-                // UI Layer
-                VStack {
-                    HStack {
-                        Button(action: onBack) {
-                            ZStack {
-                                Circle()
-                                    .fill(.white.opacity(0.2))
-                                    .frame(width: 42, height: 42)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(.white.opacity(0.25), lineWidth: 1)
-                                    )
-                                    .blur(radius: 0.5)
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text
+                    // Gliding bird - positioned at left 30%, animated vertically
+                    // Bird rises during inhale, descends during exhale
                     let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
-                    let isInhale = cycleProgress < 0.5
+                    let flightPhase = cos(cycleProgress * .pi * 2)
+                    let birdYOffset = flightPhase * height * 0.18
 
-                    Text(isInhale ? "INHALE" : "EXHALE")
-                        .font(.custom("Nunito", size: 22).weight(.regular))
-                        .tracking(6)
-                        .foregroundColor(.white)
-                        .shadow(color: Color(red: 0, green: 0.196, blue: 0.314).opacity(0.5), radius: 15, y: 2)
-                        .padding(.bottom, 8)
+                    GlidingBirdView(elapsedTime: elapsedTime, cycleDuration: cycleDuration)
+                        .frame(width: 80, height: 50)
+                        .position(x: width * 0.30, y: height * 0.35 + birdYOffset)
 
-                    // Timer
-                    let remaining = max(0, totalDuration - elapsedTime)
-                    let minutes = Int(remaining) / 60
-                    let seconds = Int(remaining) % 60
+                    // UI Layer
+                    VStack {
+                        HStack {
+                            Button(action: onBack) {
+                                ZStack {
+                                    Circle()
+                                        .fill(.white.opacity(0.2))
+                                        .frame(width: 42, height: 42)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(.white.opacity(0.25), lineWidth: 1)
+                                        )
+                                        .blur(radius: 0.5)
+                                    Image(systemName: "arrow.left")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
 
-                    Text(String(format: "%d:%02d", minutes, seconds))
-                        .font(.custom("Nunito", size: 15).weight(.light))
-                        .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: Color(red: 0, green: 0.196, blue: 0.314).opacity(0.3), radius: 5, y: 1)
-                        .padding(.bottom, 20)
+                        Spacer()
 
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.2))
-                            .frame(height: 3)
+                        // Phase text
+                        let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+                        let isInhale = cycleProgress < 0.5
 
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.8))
-                            .frame(width: max(0, (width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
+                        Text(isInhale ? "INHALE" : "EXHALE")
+                            .font(.custom("Nunito", size: 22).weight(.regular))
+                            .tracking(6)
+                            .foregroundColor(.white)
+                            .shadow(color: Color(red: 0, green: 0.196, blue: 0.314).opacity(0.5), radius: 15, y: 2)
+                            .padding(.bottom, 8)
+
+                        // Timer
+                        let remaining = max(0, totalDuration - elapsedTime)
+                        let minutes = Int(remaining) / 60
+                        let seconds = Int(remaining) % 60
+
+                        Text(String(format: "%d:%02d", minutes, seconds))
+                            .font(.custom("Nunito", size: 15).weight(.light))
+                            .foregroundColor(.white.opacity(0.9))
+                            .shadow(color: Color(red: 0, green: 0.196, blue: 0.314).opacity(0.3), radius: 5, y: 1)
+                            .padding(.bottom, 20)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.2))
+                                .frame(height: 3)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.8))
+                                .frame(width: max(0, (width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
+                        }
+                        .padding(.horizontal, 45)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 45)
-                    .padding(.bottom, 50)
+                }
+                .ignoresSafeArea()
+            }
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
-            .ignoresSafeArea()
         }
         .onAppear {
-            startAnimation()
-        }
-        .onDisappear {
-            isAnimating = false
-        }
-    }
-
-    private func startAnimation() {
-        isAnimating = true
-        let startTime = Date()
-
-        Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { timer in
-            guard isAnimating else {
-                timer.invalidate()
-                return
-            }
-
-            elapsedTime = Date().timeIntervalSince(startTime)
-
-            if elapsedTime >= totalDuration {
-                timer.invalidate()
-                onComplete()
-            }
+            startTime = Date()
         }
     }
 }

@@ -5,12 +5,8 @@ struct BreatheWaveView: View {
     let onComplete: () -> Void
     let onBack: () -> Void
 
-    @State private var elapsedTime: Double = 0
-    @State private var isAnimating = false
-    @State private var crab1Position: CGFloat = -0.1
-    @State private var crab2Position: CGFloat = 1.1
-    @State private var crab1Direction: CGFloat = 1
-    @State private var crab2Direction: CGFloat = -1
+    @State private var startTime: Date?
+    @State private var hasCompleted: Bool = false
 
     private let cycleDuration: Double = 10.0
 
@@ -18,152 +14,150 @@ struct BreatheWaveView: View {
         Double(duration) * 60.0
     }
 
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-
-            ZStack {
-                // Sand background
-                SandBackground()
-
-                // Wave with water
-                WaveLayer(
-                    width: width,
-                    height: height,
-                    elapsedTime: elapsedTime,
-                    cycleDuration: cycleDuration
-                )
-
-                // Crabs layer (z-index 15 in HTML - above sand, can be covered by wave)
-                CrabsLayer(
-                    width: width,
-                    height: height,
-                    crab1Position: crab1Position,
-                    crab2Position: crab2Position,
-                    crab1Direction: crab1Direction,
-                    crab2Direction: crab2Direction,
-                    elapsedTime: elapsedTime
-                )
-
-                // Starfish - positioned at bottom: 70%, left: 65% (in crabs-layer which is bottom 25%)
-                // So starfish is at height * (1 - 0.25 * 0.70) = height * 0.825 from top
-                StarfishView()
-                    .frame(width: 38, height: 38)
-                    .rotationEffect(.degrees(15))
-                    .position(x: width * 0.65, y: height * 0.825)
-
-                // UI Layer
-                VStack {
-                    HStack {
-                        Button(action: onBack) {
-                            ZStack {
-                                Circle()
-                                    .fill(.white.opacity(0.2))
-                                    .frame(width: 42, height: 42)
-                                    .background(
-                                        Circle()
-                                            .fill(.ultraThinMaterial)
-                                            .opacity(0.5)
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .stroke(.white.opacity(0.25), lineWidth: 1)
-                                    )
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text
-                    let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
-                    let isInhale = cycleProgress < 0.5
-
-                    Text(isInhale ? "INHALE" : "EXHALE")
-                        .font(.custom("Nunito", size: 22).weight(.regular))
-                        .tracking(6)
-                        .foregroundColor(.white)
-                        .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.5), radius: 15, y: 2)
-                        .padding(.bottom, 32)
-
-                    // Timer
-                    let remaining = max(0, totalDuration - elapsedTime)
-                    let minutes = Int(remaining) / 60
-                    let seconds = Int(remaining) % 60
-
-                    Text(String(format: "%d:%02d", minutes, seconds))
-                        .font(.custom("Nunito", size: 15).weight(.light))
-                        .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.3), radius: 5, y: 1)
-                        .padding(.bottom, 38)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.25))
-                            .frame(height: 3)
-
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.85))
-                            .frame(width: max(0, (geometry.size.width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
-                    }
-                    .padding(.horizontal, 45)
-                    .padding(.bottom, 50)
-                }
-            }
-            .ignoresSafeArea()
+    // Calculate crab positions from elapsed time
+    private func crabPositions(elapsedTime: Double) -> (crab1Pos: CGFloat, crab1Dir: CGFloat, crab2Pos: CGFloat, crab2Dir: CGFloat) {
+        // Crab 1 animation (18s cycle) - walks left to right then back
+        let crab1Cycle = elapsedTime.truncatingRemainder(dividingBy: 18)
+        let crab1Position: CGFloat
+        let crab1Direction: CGFloat
+        if crab1Cycle < 9 {
+            crab1Position = -0.1 + (crab1Cycle / 9) * 1.2
+            crab1Direction = 1
+        } else {
+            crab1Position = 1.1 - ((crab1Cycle - 9) / 9) * 1.2
+            crab1Direction = -1
         }
-        .onAppear {
-            startAnimation()
+
+        // Crab 2 animation (22s cycle) - walks right to left then back
+        let crab2Cycle = elapsedTime.truncatingRemainder(dividingBy: 22)
+        let crab2Position: CGFloat
+        let crab2Direction: CGFloat
+        if crab2Cycle < 11 {
+            crab2Position = 1.1 - (crab2Cycle / 11) * 1.2
+            crab2Direction = -1
+        } else {
+            crab2Position = -0.1 + ((crab2Cycle - 11) / 11) * 1.2
+            crab2Direction = 1
         }
-        .onDisappear {
-            isAnimating = false
-        }
+
+        return (crab1Position, crab1Direction, crab2Position, crab2Direction)
     }
 
-    private func startAnimation() {
-        isAnimating = true
-        let startTime = Date()
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+            let crabs = crabPositions(elapsedTime: elapsedTime)
 
-        Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { timer in
-            guard isAnimating else {
-                timer.invalidate()
-                return
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let height = geometry.size.height
+
+                ZStack {
+                    // Sand background
+                    SandBackground()
+
+                    // Wave with water
+                    WaveLayer(
+                        width: width,
+                        height: height,
+                        elapsedTime: elapsedTime,
+                        cycleDuration: cycleDuration
+                    )
+
+                    // Crabs layer (z-index 15 in HTML - above sand, can be covered by wave)
+                    CrabsLayer(
+                        width: width,
+                        height: height,
+                        crab1Position: crabs.crab1Pos,
+                        crab2Position: crabs.crab2Pos,
+                        crab1Direction: crabs.crab1Dir,
+                        crab2Direction: crabs.crab2Dir,
+                        elapsedTime: elapsedTime
+                    )
+
+                    // Starfish - positioned at bottom: 70%, left: 65% (in crabs-layer which is bottom 25%)
+                    // So starfish is at height * (1 - 0.25 * 0.70) = height * 0.825 from top
+                    StarfishView()
+                        .frame(width: 38, height: 38)
+                        .rotationEffect(.degrees(15))
+                        .position(x: width * 0.65, y: height * 0.825)
+
+                    // UI Layer
+                    VStack {
+                        HStack {
+                            Button(action: onBack) {
+                                ZStack {
+                                    Circle()
+                                        .fill(.white.opacity(0.2))
+                                        .frame(width: 42, height: 42)
+                                        .background(
+                                            Circle()
+                                                .fill(.ultraThinMaterial)
+                                                .opacity(0.5)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(.white.opacity(0.25), lineWidth: 1)
+                                        )
+                                    Image(systemName: "arrow.left")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
+                        Spacer()
+
+                        // Phase text
+                        let cycleProgress = elapsedTime.truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+                        let isInhale = cycleProgress < 0.5
+
+                        Text(isInhale ? "INHALE" : "EXHALE")
+                            .font(.custom("Nunito", size: 22).weight(.regular))
+                            .tracking(6)
+                            .foregroundColor(.white)
+                            .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.5), radius: 15, y: 2)
+                            .padding(.bottom, 32)
+
+                        // Timer
+                        let remaining = max(0, totalDuration - elapsedTime)
+                        let minutes = Int(remaining) / 60
+                        let seconds = Int(remaining) % 60
+
+                        Text(String(format: "%d:%02d", minutes, seconds))
+                            .font(.custom("Nunito", size: 15).weight(.light))
+                            .foregroundColor(.white.opacity(0.9))
+                            .shadow(color: Color(red: 0.39, green: 0.31, blue: 0.24).opacity(0.3), radius: 5, y: 1)
+                            .padding(.bottom, 38)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.25))
+                                .frame(height: 3)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(.white.opacity(0.85))
+                                .frame(width: max(0, (geometry.size.width - 90) * CGFloat(elapsedTime / totalDuration)), height: 3)
+                        }
+                        .padding(.horizontal, 45)
+                        .padding(.bottom, 50)
+                    }
+                }
+                .ignoresSafeArea()
             }
-
-            elapsedTime = Date().timeIntervalSince(startTime)
-
-            // Crab 1 animation (18s cycle) - walks left to right then back
-            let crab1Cycle = elapsedTime.truncatingRemainder(dividingBy: 18)
-            if crab1Cycle < 9 {
-                crab1Position = -0.1 + (crab1Cycle / 9) * 1.2
-                crab1Direction = 1
-            } else {
-                crab1Position = 1.1 - ((crab1Cycle - 9) / 9) * 1.2
-                crab1Direction = -1
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
+                }
             }
-
-            // Crab 2 animation (22s cycle) - walks right to left then back
-            let crab2Cycle = elapsedTime.truncatingRemainder(dividingBy: 22)
-            if crab2Cycle < 11 {
-                crab2Position = 1.1 - (crab2Cycle / 11) * 1.2
-                crab2Direction = -1
-            } else {
-                crab2Position = -0.1 + ((crab2Cycle - 11) / 11) * 1.2
-                crab2Direction = 1
-            }
-
-            if elapsedTime >= totalDuration {
-                timer.invalidate()
-                onComplete()
-            }
+        }
+        .onAppear {
+            startTime = Date()
         }
     }
 }

@@ -15,11 +15,8 @@ struct BreatheChairliftView: View {
     let onBack: () -> Void
 
     // State
-    @State private var isInhaling: Bool = true
-    @State private var elapsedTime: Double = 0
-    @State private var displayLink: Timer?
     @State private var startTime: Date?
-    @State private var isAnimating: Bool = false
+    @State private var hasCompleted: Bool = false
 
     // Constants matching HTML exactly
     private let inhaleDuration: Double = 5.0
@@ -30,154 +27,164 @@ struct BreatheChairliftView: View {
     private let pylonSpacing: CGFloat = 300
     private let cabinScreenXRatio: CGFloat = 0.4
 
+    private var totalDuration: Double {
+        Double(duration * 60)
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            let screenWidth = geo.size.width
-            let screenHeight = geo.size.height
+        TimelineView(.animation) { timeline in
+            let elapsedTime = startTime.map { timeline.date.timeIntervalSince($0) } ?? 0
 
-            // Calculate animation state
-            let totalDuration = Double(duration * 60)
-            let cycleProgress = (elapsedTime.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
-            let currentIsInhale = cycleProgress < 0.5
-            let cycleNumber = Int(elapsedTime / cycleDuration)
+            GeometryReader { geo in
+                let screenWidth = geo.size.width
+                let screenHeight = geo.size.height
 
-            // Calculate continuousT for cable position (matches HTML exactly)
-            let continuousT: Double = {
-                if currentIsInhale {
-                    // Inhale: moving UP from sag (t=0.5) to pylon (t=1.0)
-                    let inhaleProgress = easeInOutSine(cycleProgress * 2)
-                    return Double(cycleNumber) + 0.5 + inhaleProgress * 0.5
-                } else {
-                    // Exhale: moving DOWN from pylon (t=0.0) to sag (t=0.5)
-                    let exhaleProgress = easeInOutSine((cycleProgress - 0.5) * 2)
-                    return Double(cycleNumber) + 1.0 + exhaleProgress * 0.5
-                }
-            }()
+                // Calculate animation state
+                let cycleProgress = (elapsedTime.truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
+                let currentIsInhale = cycleProgress < 0.5
+                let cycleNumber = Int(elapsedTime / cycleDuration)
 
-            let tInSegment = continuousT.truncatingRemainder(dividingBy: 1.0)
+                // Calculate continuousT for cable position (matches HTML exactly)
+                let continuousT: Double = {
+                    if currentIsInhale {
+                        // Inhale: moving UP from sag (t=0.5) to pylon (t=1.0)
+                        let inhaleProgress = easeInOutSine(cycleProgress * 2)
+                        return Double(cycleNumber) + 0.5 + inhaleProgress * 0.5
+                    } else {
+                        // Exhale: moving DOWN from pylon (t=0.0) to sag (t=0.5)
+                        let exhaleProgress = easeInOutSine((cycleProgress - 0.5) * 2)
+                        return Double(cycleNumber) + 1.0 + exhaleProgress * 0.5
+                    }
+                }()
 
-            // Calculate cabin Y on cable: pylonY + 4*t*(1-t)*CABLE_SAG
-            let cabinCableY = pylonBaseY + cableSag * 4 * CGFloat(tInSegment) * CGFloat(1 - tInSegment)
+                let tInSegment = continuousT.truncatingRemainder(dividingBy: 1.0)
 
-            // Forest scroll offset
-            let forestScroll = CGFloat(continuousT) * pylonSpacing * 0.8
+                // Calculate cabin Y on cable: pylonY + 4*t*(1-t)*CABLE_SAG
+                let cabinCableY = pylonBaseY + cableSag * 4 * CGFloat(tInSegment) * CGFloat(1 - tInSegment)
 
-            // Progress
-            let progress = min(elapsedTime / totalDuration, 1.0)
-            let remainingSeconds = max(0, Int(totalDuration - elapsedTime))
+                // Forest scroll offset
+                let forestScroll = CGFloat(continuousT) * pylonSpacing * 0.8
 
-            ZStack {
-                // Sky gradient - exact from HTML (top to bottom)
-                LinearGradient(
-                    colors: [
-                        Color(hex: "5BA3C6"),
-                        Color(hex: "7EC8E3"),
-                        Color(hex: "98D4EA"),
-                        Color(hex: "B8E6F0"),
-                        Color(hex: "D0EDE8"),
-                        Color(hex: "E8F4E8")
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                // Progress
+                let progress = min(elapsedTime / totalDuration, 1.0)
+                let remainingSeconds = max(0, Int(totalDuration - elapsedTime))
 
-                // Clouds layer
-                ChairliftCloudsLayer()
+                ZStack {
+                    // Sky gradient - exact from HTML (top to bottom)
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "5BA3C6"),
+                            Color(hex: "7EC8E3"),
+                            Color(hex: "98D4EA"),
+                            Color(hex: "B8E6F0"),
+                            Color(hex: "D0EDE8"),
+                            Color(hex: "E8F4E8")
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
 
-                // Mountains with snow caps
-                ChairliftMountainsLayer(screenHeight: screenHeight)
+                    // Clouds layer
+                    ChairliftCloudsLayer()
 
-                // Dense forest (scrolls with parallax)
-                ChairliftForestLayer(offset: forestScroll, screenHeight: screenHeight)
+                    // Mountains with snow caps
+                    ChairliftMountainsLayer(screenHeight: screenHeight)
 
-                // Pylons (scroll)
-                ChairliftPylonsLayer(
-                    continuousT: continuousT,
-                    pylonSpacing: pylonSpacing,
-                    pylonBaseY: pylonBaseY,
-                    cabinScreenX: screenWidth * cabinScreenXRatio,
-                    screenHeight: screenHeight
-                )
+                    // Dense forest (scrolls with parallax)
+                    ChairliftForestLayer(offset: forestScroll, screenHeight: screenHeight)
 
-                // Cable (curved path between pylons)
-                ChairliftCableView(
-                    continuousT: continuousT,
-                    pylonSpacing: pylonSpacing,
-                    pylonBaseY: pylonBaseY,
-                    cableSag: cableSag,
-                    cabinScreenX: screenWidth * cabinScreenXRatio,
-                    screenWidth: screenWidth
-                )
+                    // Pylons (scroll)
+                    ChairliftPylonsLayer(
+                        continuousT: continuousT,
+                        pylonSpacing: pylonSpacing,
+                        pylonBaseY: pylonBaseY,
+                        cabinScreenX: screenWidth * cabinScreenXRatio,
+                        screenHeight: screenHeight
+                    )
 
-                // Snowflakes
-                ChairliftSnowLayer()
+                    // Cable (curved path between pylons)
+                    ChairliftCableView(
+                        continuousT: continuousT,
+                        pylonSpacing: pylonSpacing,
+                        pylonBaseY: pylonBaseY,
+                        cableSag: cableSag,
+                        cabinScreenX: screenWidth * cabinScreenXRatio,
+                        screenWidth: screenWidth
+                    )
 
-                // Yellow cabin - connector center must be exactly ON the cable
-                // Cabin total height: connector(16) + rod(22) + body(62) = 100
-                // Connector center is 8px from top
-                // To position connector center at cabinCableY, offset cabin down by:
-                // (totalHeight/2 - connectorRadius) = (100/2 - 8) = 42
-                ChairliftCabinView()
-                    .position(x: screenWidth * cabinScreenXRatio, y: cabinCableY + 42)
+                    // Snowflakes
+                    ChairliftSnowLayer()
 
-                // UI Overlay
-                VStack {
-                    // Back button - white circle (matches HTML)
-                    HStack {
-                        Button(action: onBack) {
-                            Circle()
-                                .fill(Color.white.opacity(0.95))
-                                .frame(width: 42, height: 42)
-                                .overlay(
-                                    Image(systemName: "arrow.left")
-                                        .foregroundColor(Color(hex: "444444"))
-                                        .font(.system(size: 18, weight: .medium))
-                                )
-                                .shadow(color: .black.opacity(0.25), radius: 7, y: 4)
+                    // Yellow cabin - connector center must be exactly ON the cable
+                    // Cabin total height: connector(16) + rod(22) + body(62) = 100
+                    // Connector center is 8px from top
+                    // To position connector center at cabinCableY, offset cabin down by:
+                    // (totalHeight/2 - connectorRadius) = (100/2 - 8) = 42
+                    ChairliftCabinView()
+                        .position(x: screenWidth * cabinScreenXRatio, y: cabinCableY + 42)
+
+                    // UI Overlay
+                    VStack {
+                        // Back button - white circle (matches HTML)
+                        HStack {
+                            Button(action: onBack) {
+                                Circle()
+                                    .fill(Color.white.opacity(0.95))
+                                    .frame(width: 42, height: 42)
+                                    .overlay(
+                                        Image(systemName: "arrow.left")
+                                            .foregroundColor(Color(hex: "444444"))
+                                            .font(.system(size: 18, weight: .medium))
+                                    )
+                                    .shadow(color: .black.opacity(0.25), radius: 7, y: 4)
+                            }
+                            Spacer()
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+
                         Spacer()
+
+                        // Phase text - exact styling from HTML
+                        Text(currentIsInhale ? "INHALE" : "EXHALE")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(.white)
+                            .tracking(6)
+                            .shadow(color: .black.opacity(0.6), radius: 8, y: 2)
+
+                        // Timer display
+                        Text(formatTime(remainingSeconds))
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.9))
+                            .shadow(color: .black.opacity(0.5), radius: 5, y: 2)
+                            .padding(.top, 4)
+
+                        // Progress bar
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white.opacity(0.4))
+                                .frame(height: 5)
+
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white)
+                                .frame(width: (screenWidth - 90) * CGFloat(progress), height: 5)
+                        }
+                        .frame(width: screenWidth - 90)
+                        .padding(.top, 20)
+                        .padding(.bottom, 50)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 60)
-
-                    Spacer()
-
-                    // Phase text - exact styling from HTML
-                    Text(currentIsInhale ? "INHALE" : "EXHALE")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(.white)
-                        .tracking(6)
-                        .shadow(color: .black.opacity(0.6), radius: 8, y: 2)
-
-                    // Timer display
-                    Text(formatTime(remainingSeconds))
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: .black.opacity(0.5), radius: 5, y: 2)
-                        .padding(.top, 4)
-
-                    // Progress bar
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white.opacity(0.4))
-                            .frame(height: 5)
-
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white)
-                            .frame(width: (screenWidth - 90) * CGFloat(progress), height: 5)
-                    }
-                    .frame(width: screenWidth - 90)
-                    .padding(.top, 20)
-                    .padding(.bottom, 50)
+                }
+            }
+            .onChange(of: elapsedTime >= totalDuration) { _, completed in
+                if completed && !hasCompleted {
+                    hasCompleted = true
+                    onComplete()
                 }
             }
         }
         .onAppear {
-            startAnimation()
-        }
-        .onDisappear {
-            stopAnimation()
+            startTime = Date()
         }
     }
 
@@ -190,30 +197,6 @@ struct BreatheChairliftView: View {
         let mins = seconds / 60
         let secs = seconds % 60
         return String(format: "%d:%02d", mins, secs)
-    }
-
-    private func startAnimation() {
-        startTime = Date()
-        isAnimating = true
-
-        // Use a timer to update at ~60fps
-        displayLink = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { _ in
-            guard let start = startTime else { return }
-            elapsedTime = Date().timeIntervalSince(start)
-
-            // Check completion
-            let totalDuration = Double(duration * 60)
-            if elapsedTime >= totalDuration {
-                stopAnimation()
-                onComplete()
-            }
-        }
-    }
-
-    private func stopAnimation() {
-        displayLink?.invalidate()
-        displayLink = nil
-        isAnimating = false
     }
 }
 
@@ -839,17 +822,20 @@ struct ChairliftSnowLayer: View {
     }
 
     private func startSnowAnimation() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { _ in
-            for i in snowflakes.indices {
-                // Move down (matching HTML: translateY from -20 to 820)
-                snowflakes[i].y += snowflakes[i].speed
-                // Slight horizontal drift (matching HTML: translateX 0 to 30)
-                snowflakes[i].x += 0.0004
+        Task { @MainActor in
+            while true {
+                try? await Task.sleep(nanoseconds: 33_333_333) // ~30fps
+                for i in snowflakes.indices {
+                    // Move down (matching HTML: translateY from -20 to 820)
+                    snowflakes[i].y += snowflakes[i].speed
+                    // Slight horizontal drift (matching HTML: translateX 0 to 30)
+                    snowflakes[i].x += 0.0004
 
-                // Reset when off screen
-                if snowflakes[i].y > 1.05 {
-                    snowflakes[i].y = -0.025
-                    snowflakes[i].x = CGFloat.random(in: 0...1)
+                    // Reset when off screen
+                    if snowflakes[i].y > 1.05 {
+                        snowflakes[i].y = -0.025
+                        snowflakes[i].x = CGFloat.random(in: 0...1)
+                    }
                 }
             }
         }
