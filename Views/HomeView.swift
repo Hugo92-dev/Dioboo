@@ -43,9 +43,7 @@ struct HomeView: View {
                     .foregroundColor(Color(hex: "B8C0E6"))
                     .padding(.top, 14)
 
-                Spacer()
-
-                // Begin button - exact styling from HTML
+                // Begin button - closer to content like in HTML
                 Button(action: onBegin) {
                     Text("Begin")
                         .font(.custom("Nunito", size: 17).weight(.semibold))
@@ -65,7 +63,9 @@ struct HomeView: View {
                         .cornerRadius(30)
                 }
                 .buttonStyle(ScaleButtonStyle())
-                .padding(.bottom, 60)
+                .padding(.top, 55)
+
+                Spacer()
             }
             .padding(.horizontal, 28)
             .opacity(contentOpacity)
