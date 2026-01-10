@@ -80,41 +80,9 @@ struct SplashView: View {
 
 struct DiobooLogo: View {
     var body: some View {
-        // Fallback logo - soft purple organic shape
-        // In production, use Image("Logo") instead
-        ZStack {
-            // Main organic shape (approximation of the actual logo)
-            Ellipse()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "E8D4FF").opacity(0.8),
-                            Color(hex: "D4C4FF").opacity(0.6)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 80, height: 48)
-                .rotationEffect(.degrees(-15))
-                .blur(radius: 1)
-
-            // Small circle accent (top left of logo)
-            Ellipse()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "E8D4FF").opacity(0.6),
-                            Color(hex: "D4C4FF").opacity(0.4)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: 24, height: 18)
-                .offset(x: -20, y: -25)
-                .blur(radius: 0.5)
-        }
+        Image("Logo")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
     }
 }
 
